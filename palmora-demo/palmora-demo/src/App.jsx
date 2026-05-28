@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import oceanView from "./assets/ocean-view.png";
 import gardenView from "./assets/garden-view.png";
 import suite from "./assets/suite.png";
@@ -6,6 +6,50 @@ import profileImage from "./assets/profile-palmora.png";
 import palmoraLogo from "./assets/palmorawhitelogo.png";
 import homeBg from "./assets/background2.jpeg";
 import loginBg from "./assets/loginbg.png";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+
+const FALLBACK_ROOM_IMAGES = {
+  "Ocean View": oceanView,
+  "Garden View": gardenView,
+  Suites: suite,
+  Suite: suite,
+};
+
+const ROOM_DESCRIPTIONS = {
+  "Ocean View":
+    "Enjoy breathtaking ocean views from your private balcony. Modern comfort and tropical elegance for a perfect stay.",
+  "Garden View":
+    "Relax in a peaceful garden atmosphere surrounded by tropical greenery. A cozy escape designed for comfort and serenity.",
+  Suites:
+    "Experience luxury and spacious living with elegant interiors and stunning resort views. Perfect for a premium Palmora stay.",
+};
+
+const ROOM_CARD_FILTERS = ["All", "Ocean View", "Garden View", "Suites"];
+
+const formatDateLabel = (dateValue) => {
+  if (!dateValue) {
+    return "";
+  }
+
+  const parsedDate = new Date(dateValue);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return dateValue;
+  }
+
+  return parsedDate.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const calculateNights = (checkInDate, checkOutDate) => {
+  const checkIn = new Date(checkInDate);
+  const checkOut = new Date(checkOutDate);
+  const nights = Math.ceil((checkOut - checkIn) / 86400000);
+  return Number.isFinite(nights) && nights > 0 ? nights : 1;
+};
 
 export default function App() {
   const appStyle = {
@@ -17,98 +61,231 @@ export default function App() {
     background: "#0f3d3e",
     boxSizing: "border-box",
   };
+
   const [screen, setScreen] = useState("login");
-
   const [activeFilter, setActiveFilter] = useState("All");
-
   const [selectedRoom, setSelectedRoom] = useState(null);
-
   const [bookingTab, setBookingTab] = useState("upcoming");
+  const [roomSearch, setRoomSearch] = useState({
+    location: "Famagusta",
+    checkInDate: "2026-05-20",
+    checkOutDate: "2026-05-24",
+    guestCount: "2",
+    type: "All",
+  });
+  const [availableRooms, setAvailableRooms] = useState([]);
+  const [roomsLoading, setRoomsLoading] = useState(false);
+  const [roomsError, setRoomsError] = useState("");
+  const [paymentError, setPaymentError] = useState("");
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
 
-  const rooms = [
+  const demoRooms = [
     {
       name: "Ocean View",
       price: 220,
       image: oceanView,
-      description: "Enjoy breathtaking ocean views from your private balcony. Modern comfort and tropical elegance for a perfect stay.",
+      description: ROOM_DESCRIPTIONS["Ocean View"],
       guests: "3 Guests",
+      RoomID: 1,
+      id: 1,
     },
     {
       name: "Garden View",
       price: 190,
       image: gardenView,
-      description: "Relax in a peaceful garden atmosphere surrounded by tropical greenery. A cozy escape designed for comfort and serenity.",
+      description: ROOM_DESCRIPTIONS["Garden View"],
       guests: "2 Guests",
+      RoomID: 2,
+      id: 2,
     },
     {
-      name: "Suite",
+      name: "Suites",
       price: 350,
       image: suite,
-      description: "Experience luxury and spacious living with elegant interiors and stunning resort views. Perfect for a premium Palmora stay.",
+      description: ROOM_DESCRIPTIONS.Suites,
       guests: "4 Guests",
+      RoomID: 3,
+      id: 3,
     },
   ];
 
+  const activeRoom = selectedRoom || availableRooms[0] || demoRooms[0];
+  const bookingNights = calculateNights(
+    roomSearch.checkInDate,
+    roomSearch.checkOutDate,
+  );
+
+  const normalizeRoom = (room) => ({
+    ...room,
+    RoomID: room.RoomID ?? room.id,
+    id: room.id ?? room.RoomID,
+    image: room.image
+      ? room.image.startsWith("http")
+        ? room.image
+        : `${API_BASE}${room.image}`
+      : FALLBACK_ROOM_IMAGES[room.name] || suite,
+  });
+
+  useEffect(() => {
+    if (screen !== "rooms") {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const timerId = window.setTimeout(async () => {
+      setRoomsLoading(true);
+      setRoomsError("");
+
+      try {
+        const params = new URLSearchParams({
+          location: roomSearch.location,
+          checkInDate: roomSearch.checkInDate,
+          checkOutDate: roomSearch.checkOutDate,
+          guestCount: roomSearch.guestCount,
+          type: roomSearch.type,
+        });
+
+        const response = await fetch(
+          `${API_BASE}/api/rooms/search?${params.toString()}`,
+          {
+            signal: controller.signal,
+          },
+        );
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            payload.message || payload.error || "Unable to load rooms.",
+          );
+        }
+
+        setAvailableRooms(payload.map(normalizeRoom));
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          setRoomsError(error.message || "Unable to load rooms.");
+          setAvailableRooms([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setRoomsLoading(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timerId);
+      controller.abort();
+    };
+  }, [
+    screen,
+    roomSearch.location,
+    roomSearch.checkInDate,
+    roomSearch.checkOutDate,
+    roomSearch.guestCount,
+    roomSearch.type,
+  ]);
+
+  const handleBookingConfirm = async () => {
+    if (!activeRoom) {
+      return;
+    }
+
+    setPaymentError("");
+    setPaymentSubmitting(true);
+
+    try {
+      const response = await fetch(`${API_BASE}/api/bookings/confirm`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          GuestID: 1,
+          RoomID: activeRoom.RoomID || activeRoom.id,
+          checkInDate: roomSearch.checkInDate,
+          checkOutDate: roomSearch.checkOutDate,
+          totalAmount: activeRoom.price * bookingNights,
+          paymentMethod: "Credit/ Debit Card",
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          payload.message || payload.error || "Booking confirmation failed.",
+        );
+      }
+
+      setScreen("confirmation");
+    } catch (error) {
+      setPaymentError(error.message || "Booking confirmation failed.");
+    } finally {
+      setPaymentSubmitting(false);
+    }
+  };
+
   if (screen === "login") {
     return (
-      <div style={{
-        ...page("#145a5a"),
-        ...appStyle,
-        backgroundImage: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url(${loginBg})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-        justifyContent: "center",
-      }}>
-
+      <div
+        style={{
+          ...page(),
+          ...appStyle,
+          backgroundImage: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url(${loginBg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          justifyContent: "center",
+        }}
+      >
         <img
           src={palmoraLogo}
           alt="Palmora Logo"
-          style={{
-            width: 240,
-            marginBottom: 20,
-            zIndex: 2,
-          }}
+          style={{ width: 240, marginBottom: 20, zIndex: 2 }}
         />
 
-        <div style={{
-          width: "75%",
-          maxWidth: 700,
-          background: "rgba(255,255,255,0.18)",
-          backdropFilter: "blur(6px)",
-          border: "1px solid rgba(255,255,255,0.25)",
-          borderRadius: 28,
-          padding: 22,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-        }}>
-
-          <h1 style={{
-            color: "white",
-            fontSize: 40,
-            marginBottom: 0,
-            fontWeight: "300",
-            letterSpacing: 1,
-          }}>
+        <div
+          style={{
+            width: "75%",
+            maxWidth: 700,
+            background: "rgba(255,255,255,0.18)",
+            backdropFilter: "blur(6px)",
+            border: "1px solid rgba(255,255,255,0.25)",
+            borderRadius: 28,
+            padding: 22,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
+          <h1
+            style={{
+              color: "white",
+              fontSize: 40,
+              marginBottom: 0,
+              fontWeight: 300,
+              letterSpacing: 1,
+            }}
+          >
             WELCOME!
           </h1>
-
-          <p style={{
-            marginTop: 5,
-            marginBottom: 35,
-            color: "white",
-            opacity: 0.9,
-          }}>
+          <p
+            style={{
+              marginTop: 5,
+              marginBottom: 35,
+              color: "white",
+              opacity: 0.9,
+            }}
+          >
             Relax, you're almost in
           </p>
-
-          <h2 style={{
-            color: "white",
-            marginBottom: 25,
-            fontSize: 40,
-            fontWeight: "400",
-          }}>
+          <h2
+            style={{
+              color: "white",
+              marginBottom: 25,
+              fontSize: 40,
+              fontWeight: 400,
+            }}
+          >
             LOG IN
           </h2>
 
@@ -122,7 +299,6 @@ export default function App() {
               color: "black",
             }}
           />
-
           <input
             placeholder="Password"
             type="password"
@@ -148,17 +324,19 @@ export default function App() {
           </button>
 
           <p style={{ color: "white", marginTop: 22 }}>
-            Don&apos;t have an account?{" "}
+            Don't have an account?{" "}
             <span
               onClick={() => setScreen("signup")}
-              style={{ textDecoration: "underline", fontWeight: "bold", cursor: "pointer" }}
+              style={{
+                textDecoration: "underline",
+                fontWeight: "bold",
+                cursor: "pointer",
+              }}
             >
               Sign up
             </span>
           </p>
-
         </div>
-
       </div>
     );
   }
@@ -167,7 +345,7 @@ export default function App() {
     return (
       <div
         style={{
-          ...page("#145a5a"),
+          ...page(),
           ...appStyle,
           backgroundImage: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url(${loginBg})`,
           backgroundSize: "cover",
@@ -179,10 +357,7 @@ export default function App() {
         <img
           src={palmoraLogo}
           alt="Palmora Logo"
-          style={{
-            width: 180,
-            marginBottom: 25,
-          }}
+          style={{ width: 180, marginBottom: 25 }}
         />
 
         <div
@@ -199,19 +374,35 @@ export default function App() {
             alignItems: "center",
           }}
         >
-          <h1 style={{ color: "white", fontSize: 40, margin: 0, fontWeight: 300 }}>
+          <h1
+            style={{ color: "white", fontSize: 40, margin: 0, fontWeight: 300 }}
+          >
             SIGN UP
           </h1>
-
-          <p style={{ color: "white", opacity: 0.9, marginTop: 6, marginBottom: 22 }}>
+          <p
+            style={{
+              color: "white",
+              opacity: 0.9,
+              marginTop: 6,
+              marginBottom: 22,
+            }}
+          >
             Create your account
           </p>
 
           <input placeholder="Full Name" style={signupInputStyle} />
           <input placeholder="Email" style={signupInputStyle} />
           <input placeholder="Phone Number" style={signupInputStyle} />
-          <input placeholder="Password" type="password" style={signupInputStyle} />
-          <input placeholder="Confirm Password" type="password" style={signupInputStyle} />
+          <input
+            placeholder="Password"
+            type="password"
+            style={signupInputStyle}
+          />
+          <input
+            placeholder="Confirm Password"
+            type="password"
+            style={signupInputStyle}
+          />
 
           <button
             onClick={() => setScreen("home")}
@@ -229,7 +420,11 @@ export default function App() {
             Already a member?{" "}
             <span
               onClick={() => setScreen("login")}
-              style={{ textDecoration: "underline", fontWeight: "bold", cursor: "pointer" }}
+              style={{
+                textDecoration: "underline",
+                fontWeight: "bold",
+                cursor: "pointer",
+              }}
             >
               Log in
             </span>
@@ -241,26 +436,29 @@ export default function App() {
 
   if (screen === "home") {
     return (
-      <div style={{
-        ...screenPage("#145a5a"),
-        ...appStyle,
-        backgroundImage: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url(${homeBg})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "flex-start",
-        position: "relative",
-      }}>
-
+      <div
+        style={{
+          ...screenPage(),
+          ...appStyle,
+          backgroundImage: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url(${homeBg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-start",
+          position: "relative",
+        }}
+      >
         <div style={{ textAlign: "left", width: "100%" }}>
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 15,
-            marginTop: 40,
-          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 15,
+              marginTop: 40,
+            }}
+          >
             <img
               src={profileImage}
               alt="Profile"
@@ -272,68 +470,69 @@ export default function App() {
                 border: "2px solid white",
               }}
             />
-
             <div>
-              <p style={{ margin: 0, fontSize: 16 }}>
-                Welcome back,
-              </p>
-
-              <h2 style={{
-                margin: 0,
-                fontSize: 24,
-                lineHeight: 1.1,
-              }}>
+              <p style={{ margin: 0, fontSize: 16 }}>Welcome back,</p>
+              <h2 style={{ margin: 0, fontSize: 24, lineHeight: 1.1 }}>
                 [NAME]!
               </h2>
             </div>
           </div>
         </div>
 
-        <div style={{
-          background: "rgba(255,255,255,0.18)",
-          backdropFilter: "blur(4px)",
-          borderRadius: 25,
-          padding: 30,
-          textAlign: "left",
-          marginTop: 320,
-          marginBottom: 0,
-          width: "80%",
-        }}>
+        <div
+          style={{
+            background: "rgba(255,255,255,0.18)",
+            backdropFilter: "blur(4px)",
+            borderRadius: 25,
+            padding: 30,
+            textAlign: "left",
+            marginTop: 320,
+            width: "80%",
+          }}
+        >
           <h2>Your Private Paradise</h2>
-          <p>Experience comfort, luxury and unforgettable moments in our exclusive resort.</p>
-
+          <p>
+            Experience comfort, luxury and unforgettable moments in our
+            exclusive resort.
+          </p>
           <button onClick={() => setScreen("rooms")} style={buttonStyle}>
             Explore Rooms
           </button>
         </div>
 
         <div style={navbarStyle}>
-          <button onClick={() => setScreen("home")} style={navButton}>Home</button>
-          <button onClick={() => setScreen("rooms")} style={navButton}>Rooms</button>
-          <button onClick={() => setScreen("mybookings")} style={navButton}>Bookings</button>
-          <button onClick={() => setScreen("profile")} style={navButton}>Profile</button>
+          <button onClick={() => setScreen("home")} style={navButton}>
+            Home
+          </button>
+          <button onClick={() => setScreen("rooms")} style={navButton}>
+            Rooms
+          </button>
+          <button onClick={() => setScreen("mybookings")} style={navButton}>
+            Bookings
+          </button>
+          <button onClick={() => setScreen("profile")} style={navButton}>
+            Profile
+          </button>
         </div>
-
       </div>
     );
   }
 
   if (screen === "rooms") {
     return (
-      <div style={{
-        ...screenPage("#145a5a"),
-        ...appStyle,
-        backgroundImage: `linear-gradient(rgba(20,90,90,0.82), rgba(20,90,90,0.82)), url(${loginBg})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        padding: 24,
-      }}>
-
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          marginBottom: 20,
-        }}>
+      <div
+        style={{
+          ...screenPage(),
+          ...appStyle,
+          backgroundImage: `linear-gradient(rgba(20,90,90,0.82), rgba(20,90,90,0.82)), url(${loginBg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          padding: 24,
+        }}
+      >
+        <div
+          style={{ display: "flex", alignItems: "center", marginBottom: 20 }}
+        >
           <button
             onClick={() => setScreen("home")}
             style={{
@@ -347,25 +546,90 @@ export default function App() {
           >
             ←
           </button>
-
-          <h1 style={{
-            color: "white",
-            fontSize: 30,
-            margin: 0,
-          }}>
+          <h1 style={{ color: "white", fontSize: 30, margin: 0 }}>
             Rooms & Suites
           </h1>
         </div>
 
-        <div style={{
-          display: "flex",
-          gap: 10,
-          marginBottom: 20,
-        }}>
-          {["All", "Ocean View", "Garden View", "Suites"].map((filter) => (
+        <div
+          style={{
+            width: "100%",
+            background: "rgba(255,255,255,0.12)",
+            border: "1px solid rgba(255,255,255,0.18)",
+            borderRadius: 22,
+            padding: 14,
+            boxSizing: "border-box",
+            marginBottom: 14,
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          <input
+            value={roomSearch.location}
+            onChange={(event) =>
+              setRoomSearch((current) => ({
+                ...current,
+                location: event.target.value,
+              }))
+            }
+            placeholder="City / Location"
+            style={{ ...searchInputStyle, marginBottom: 10 }}
+          />
+
+          <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+            <input
+              type="date"
+              value={roomSearch.checkInDate}
+              onChange={(event) =>
+                setRoomSearch((current) => ({
+                  ...current,
+                  checkInDate: event.target.value,
+                }))
+              }
+              style={{ ...searchInputStyle, flex: 1 }}
+            />
+            <input
+              type="date"
+              value={roomSearch.checkOutDate}
+              onChange={(event) =>
+                setRoomSearch((current) => ({
+                  ...current,
+                  checkOutDate: event.target.value,
+                }))
+              }
+              style={{ ...searchInputStyle, flex: 1 }}
+            />
+          </div>
+
+          <input
+            type="number"
+            min="1"
+            value={roomSearch.guestCount}
+            onChange={(event) =>
+              setRoomSearch((current) => ({
+                ...current,
+                guestCount: event.target.value,
+              }))
+            }
+            placeholder="Guests"
+            style={searchInputStyle}
+          />
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            marginBottom: 20,
+            flexWrap: "wrap",
+          }}
+        >
+          {ROOM_CARD_FILTERS.map((filter) => (
             <button
               key={filter}
-              onClick={() => setActiveFilter(filter)}
+              onClick={() => {
+                setActiveFilter(filter);
+                setRoomSearch((current) => ({ ...current, type: filter }));
+              }}
               style={{
                 padding: "8px 14px",
                 borderRadius: 20,
@@ -380,15 +644,54 @@ export default function App() {
           ))}
         </div>
 
-        {rooms
+        {roomsLoading && (
+          <p
+            style={{
+              color: "white",
+              width: "100%",
+              textAlign: "left",
+              marginTop: 0,
+            }}
+          >
+            Searching available rooms...
+          </p>
+        )}
+        {roomsError && (
+          <p
+            style={{
+              color: "#ffd0d0",
+              width: "100%",
+              textAlign: "left",
+              marginTop: 0,
+            }}
+          >
+            {roomsError}
+          </p>
+        )}
+
+        {!roomsLoading && !roomsError && availableRooms.length === 0 && (
+          <p
+            style={{
+              color: "white",
+              width: "100%",
+              textAlign: "left",
+              marginTop: 0,
+            }}
+          >
+            No rooms matched the current search.
+          </p>
+        )}
+
+        {availableRooms
           .filter((room) => {
             if (activeFilter === "All") return true;
-            if (activeFilter === "Suites") return room.name === "Suite";
+            if (activeFilter === "Suites")
+              return room.name === "Suites" || room.name === "Suite";
             return room.name === activeFilter;
           })
           .map((room) => (
             <div
-              key={room.name}
+              key={room.RoomID || room.id || room.name}
               onClick={() => {
                 setSelectedRoom(room);
                 setScreen("details");
@@ -418,53 +721,41 @@ export default function App() {
                 }}
               />
 
-              <div style={{
-                flex: 1,
-                textAlign: "left",
-                color: "white",
-              }}>
-                <div style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}>
-                  <h2 style={{
-                    margin: 0,
-                    fontSize: 22,
-                    color: "white",
-                  }}>
+              <div style={{ flex: 1, textAlign: "left", color: "white" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <h2 style={{ margin: 0, fontSize: 22, color: "white" }}>
                     {room.name}
                   </h2>
-
                   <span style={{ fontSize: 26 }}>♡</span>
                 </div>
 
-                <p style={{
-                  margin: "10px 0 4px",
-                  fontSize: 13,
-                  opacity: 0.9,
-                }}>
+                <p style={{ margin: "10px 0 4px", fontSize: 13, opacity: 0.9 }}>
                   {room.guests} &nbsp;&nbsp; 1 King Bed
                 </p>
 
-                <p style={{
-                  margin: 0,
-                  fontSize: 13,
-                  opacity: 0.9,
-                }}>
-                  {room.name === "Suite" ? "50 m²" : room.name === "Garden View" ? "28 m²" : "32 m²"}
+                <p style={{ margin: 0, fontSize: 13, opacity: 0.9 }}>
+                  {room.name === "Suites" || room.name === "Suite"
+                    ? "50 m²"
+                    : room.name === "Garden View"
+                      ? "28 m²"
+                      : "32 m²"}
                 </p>
 
-                <p style={{
-                  margin: "22px 0 0",
-                  fontSize: 24,
-                  fontWeight: "bold",
-                }}>
+                <p
+                  style={{
+                    margin: "22px 0 0",
+                    fontSize: 24,
+                    fontWeight: "bold",
+                  }}
+                >
                   ${room.price}
-                  <span style={{
-                    fontSize: 10,
-                    fontWeight: "normal",
-                  }}>
+                  <span style={{ fontSize: 10, fontWeight: "normal" }}>
                     /night
                   </span>
                 </p>
@@ -473,12 +764,19 @@ export default function App() {
           ))}
 
         <div style={navbarStyle}>
-          <button onClick={() => setScreen("home")} style={navButton}>Home</button>
-          <button onClick={() => setScreen("rooms")} style={navButton}>Rooms</button>
-          <button onClick={() => setScreen("mybookings")} style={navButton}>Bookings</button>
-          <button onClick={() => setScreen("profile")} style={navButton}>Profile</button>
+          <button onClick={() => setScreen("home")} style={navButton}>
+            Home
+          </button>
+          <button onClick={() => setScreen("rooms")} style={navButton}>
+            Rooms
+          </button>
+          <button onClick={() => setScreen("mybookings")} style={navButton}>
+            Bookings
+          </button>
+          <button onClick={() => setScreen("profile")} style={navButton}>
+            Profile
+          </button>
         </div>
-
       </div>
     );
   }
@@ -499,13 +797,9 @@ export default function App() {
       >
         <div style={{ position: "relative", height: 300 }}>
           <img
-            src={selectedRoom.image}
-            alt={selectedRoom.name}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-            }}
+            src={activeRoom.image}
+            alt={activeRoom.name}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
 
           <button
@@ -559,11 +853,10 @@ export default function App() {
             }}
           >
             <h1 style={{ margin: 0, color: "white", fontSize: 30 }}>
-              {selectedRoom.name}
+              {activeRoom.name}
             </h1>
-
             <h2 style={{ margin: 0, color: "white", fontSize: 24 }}>
-              ${selectedRoom.price}
+              ${activeRoom.price}
               <span style={{ fontSize: 14, fontWeight: "normal" }}>/night</span>
             </h2>
           </div>
@@ -577,7 +870,9 @@ export default function App() {
             }}
           >
             <div>
-              <h3 style={{ margin: 0, color: "white" }}>2</h3>
+              <h3 style={{ margin: 0, color: "white" }}>
+                {roomSearch.guestCount}
+              </h3>
               <p style={{ margin: "6px 0 0", fontSize: 13 }}>Guests</p>
             </div>
 
@@ -588,9 +883,9 @@ export default function App() {
 
             <div>
               <h3 style={{ margin: 0, color: "white" }}>
-                {selectedRoom.name === "Suite"
+                {activeRoom.name === "Suites" || activeRoom.name === "Suite"
                   ? "50"
-                  : selectedRoom.name === "Garden View"
+                  : activeRoom.name === "Garden View"
                     ? "28"
                     : "32"}
               </h3>
@@ -608,7 +903,6 @@ export default function App() {
           <h2 style={{ color: "white", fontSize: 20, marginTop: 18 }}>
             About this room
           </h2>
-
           <p
             style={{
               lineHeight: 1.6,
@@ -617,7 +911,7 @@ export default function App() {
               marginBottom: 24,
             }}
           >
-            {selectedRoom.description}
+            {activeRoom.description}
           </p>
 
           <hr style={{ borderColor: "rgba(255,255,255,0.18)" }} />
@@ -625,7 +919,6 @@ export default function App() {
           <h2 style={{ color: "white", fontSize: 20, marginTop: 18 }}>
             Amenities
           </h2>
-
           <div
             style={{
               display: "flex",
@@ -666,7 +959,7 @@ export default function App() {
     return (
       <div
         style={{
-          ...screenPage("#145a5a"),
+          ...screenPage(),
           ...appStyle,
           padding: "22px 24px",
           justifyContent: "flex-start",
@@ -717,8 +1010,8 @@ export default function App() {
           }}
         >
           <img
-            src={selectedRoom.image}
-            alt={selectedRoom.name}
+            src={activeRoom.image}
+            alt={activeRoom.name}
             style={{
               width: 110,
               height: 92,
@@ -726,14 +1019,12 @@ export default function App() {
               borderRadius: 16,
             }}
           />
-
           <div style={{ textAlign: "left" }}>
             <h2 style={{ margin: 0, color: "white", fontSize: 22 }}>
-              {selectedRoom.name}
+              {activeRoom.name}
             </h2>
-
             <p style={{ margin: "8px 0 0", color: "white", fontSize: 18 }}>
-              ${selectedRoom.price}
+              ${activeRoom.price}
               <span style={{ fontSize: 12, opacity: 0.8 }}> /night</span>
             </p>
           </div>
@@ -754,25 +1045,23 @@ export default function App() {
         >
           <p style={{ margin: 0, opacity: 0.75, fontSize: 13 }}>Check-in</p>
           <h3 style={{ margin: "5px 0 14px", color: "white", fontSize: 18 }}>
-            May 20, 2026
+            {formatDateLabel(roomSearch.checkInDate)}
           </h3>
-
           <hr style={{ borderColor: "rgba(255,255,255,0.14)" }} />
 
           <p style={{ margin: "14px 0 0", opacity: 0.75, fontSize: 13 }}>
             Check-out
           </p>
           <h3 style={{ margin: "5px 0 14px", color: "white", fontSize: 18 }}>
-            May 24, 2026
+            {formatDateLabel(roomSearch.checkOutDate)}
           </h3>
-
           <hr style={{ borderColor: "rgba(255,255,255,0.14)" }} />
 
           <p style={{ margin: "14px 0 0", opacity: 0.75, fontSize: 13 }}>
             Guests
           </p>
           <h3 style={{ margin: "5px 0 0", color: "white", fontSize: 18 }}>
-            2 Adults
+            {roomSearch.guestCount} Adults
           </h3>
         </div>
 
@@ -790,11 +1079,10 @@ export default function App() {
           }}
         >
           <p style={{ margin: 0, opacity: 0.75, fontSize: 13 }}>
-            Total (4 Nights)
+            Total ({bookingNights} Nights)
           </p>
-
           <h1 style={{ margin: "6px 0 0", color: "white", fontSize: 34 }}>
-            ${selectedRoom.price * 4}
+            ${activeRoom.price * bookingNights}
           </h1>
         </div>
 
@@ -823,34 +1111,35 @@ export default function App() {
   if (screen === "mybookings") {
     const upcomingBookings = [
       {
-        room: rooms[0],
-        date: "May 20, 2026 - May 24, 2026",
-        guests: "2 Adults",
+        room: demoRooms[0],
+        date: `${formatDateLabel(roomSearch.checkInDate)} - ${formatDateLabel(roomSearch.checkOutDate)}`,
+        guests: `${roomSearch.guestCount} Adults`,
         status: "Upcoming",
       },
     ];
 
     const pastBookings = [
       {
-        room: rooms[1],
+        room: demoRooms[1],
         date: "June 10, 2025 - June 16, 2025",
         guests: "2 Adults",
         status: "Completed",
       },
       {
-        room: rooms[2],
+        room: demoRooms[2],
         date: "March 3, 2023 - March 8, 2023",
         guests: "2 Adults",
         status: "Completed",
       },
     ];
 
-    const shownBookings = bookingTab === "upcoming" ? upcomingBookings : pastBookings;
+    const shownBookings =
+      bookingTab === "upcoming" ? upcomingBookings : pastBookings;
 
     return (
       <div
         style={{
-          ...screenPage("#145a5a"),
+          ...screenPage(),
           ...appStyle,
           padding: 28,
           backgroundImage: `linear-gradient(rgba(20,90,90,0.78), rgba(20,90,90,0.78)), url(${loginBg})`,
@@ -912,7 +1201,6 @@ export default function App() {
           >
             Upcoming
           </button>
-
           <button
             onClick={() => setBookingTab("past")}
             style={{
@@ -960,26 +1248,21 @@ export default function App() {
                 borderRadius: 16,
               }}
             />
-
             <div style={{ flex: 1 }}>
               <h2 style={{ margin: 0, color: "white", fontSize: 22 }}>
                 {booking.room.name}
               </h2>
-
               <p style={{ margin: "8px 0", color: "white", fontSize: 14 }}>
                 {booking.date}
               </p>
-
               <p style={{ margin: 0, color: "white", fontSize: 16 }}>
                 {booking.guests}
               </p>
             </div>
-
             <div style={{ textAlign: "right" }}>
               <div style={{ color: "white", fontSize: 34, marginBottom: 14 }}>
                 ›
               </div>
-
               <span
                 style={{
                   display: "inline-block",
@@ -1019,7 +1302,7 @@ export default function App() {
     return (
       <div
         style={{
-          ...screenPage("#145a5a"),
+          ...screenPage(),
           ...appStyle,
           padding: 28,
           background: `linear-gradient(rgba(20,90,90,0.25), rgba(20,90,90,0.25)), url(${loginBg}) center/cover no-repeat`,
@@ -1044,12 +1327,10 @@ export default function App() {
         <h1 style={{ color: "white", fontSize: 30, margin: "28px 0 18px" }}>
           Payment
         </h1>
-
         <hr style={{ width: "100%", borderColor: "rgba(255,255,255,0.18)" }} />
 
         <div style={{ width: "100%", textAlign: "left", marginTop: 18 }}>
           <h2 style={{ color: "white", fontSize: 18 }}>Payment Method</h2>
-
           <p style={{ color: "white" }}>○ &nbsp; Credit/ Debit Card</p>
           <p style={{ color: "white" }}>○ &nbsp; PayPal</p>
           <p style={{ color: "white" }}>♙ &nbsp; Apple Pay</p>
@@ -1067,7 +1348,6 @@ export default function App() {
               <label>Expiry Date</label>
               <input placeholder="MM / YY" style={paymentInputStyle} />
             </div>
-
             <div style={{ flex: 1 }}>
               <label>CVV</label>
               <input style={paymentInputStyle} />
@@ -1093,23 +1373,21 @@ export default function App() {
             color: "white",
           }}
         >
-          <h2 style={{
-            fontSize: 18,
-            color: "white",
-          }}>
-            Total Amount
-          </h2>
+          <h2 style={{ fontSize: 18, color: "white" }}>Total Amount</h2>
 
           <div style={{ textAlign: "right" }}>
             <h1 style={{ margin: 0, fontSize: 36, color: "white" }}>
-              ${selectedRoom.price * 4}
+              ${activeRoom.price * bookingNights}
             </h1>
-            <p style={{ margin: 0, opacity: 0.8, color: "white" }}>(4 Nights)</p>
+            <p style={{ margin: 0, opacity: 0.8, color: "white" }}>
+              ({bookingNights} Nights)
+            </p>
           </div>
         </div>
 
         <button
-          onClick={() => setScreen("confirmation")}
+          onClick={handleBookingConfirm}
+          disabled={paymentSubmitting}
           style={{
             ...buttonStyle,
             width: "100%",
@@ -1118,10 +1396,25 @@ export default function App() {
             fontSize: 18,
             padding: 15,
             borderRadius: 12,
+            opacity: paymentSubmitting ? 0.7 : 1,
+            cursor: paymentSubmitting ? "progress" : "pointer",
           }}
         >
-          PAY NOW
+          {paymentSubmitting ? "PROCESSING..." : "PAY NOW"}
         </button>
+
+        {paymentError && (
+          <p
+            style={{
+              width: "100%",
+              color: "#ffd0d0",
+              marginTop: 0,
+              textAlign: "center",
+            }}
+          >
+            {paymentError}
+          </p>
+        )}
       </div>
     );
   }
@@ -1130,7 +1423,7 @@ export default function App() {
     return (
       <div
         style={{
-          ...screenPage("#145a5a"),
+          ...screenPage(),
           ...appStyle,
           padding: 28,
           backgroundImage: `linear-gradient(rgba(20,90,90,0.82), rgba(20,90,90,0.82)), url(${loginBg})`,
@@ -1166,11 +1459,9 @@ export default function App() {
             marginTop: 45,
           }}
         />
-
         <h1 style={{ color: "white", margin: "14px 0 4px", fontSize: 30 }}>
           [NAME]!
         </h1>
-
         <p style={{ color: "white", opacity: 0.75, margin: 0 }}>
           personalemail@gmail.com
         </p>
@@ -1226,199 +1517,173 @@ export default function App() {
         </div>
 
         <div style={navbarStyle}>
-          <button onClick={() => setScreen("home")} style={navButton}>Home</button>
-          <button onClick={() => setScreen("rooms")} style={navButton}>Rooms</button>
-          <button onClick={() => setScreen("mybookings")} style={navButton}>Bookings</button>
-          <button onClick={() => setScreen("profile")} style={navButton}>Profile</button>
+          <button onClick={() => setScreen("home")} style={navButton}>
+            Home
+          </button>
+          <button onClick={() => setScreen("rooms")} style={navButton}>
+            Rooms
+          </button>
+          <button onClick={() => setScreen("mybookings")} style={navButton}>
+            Bookings
+          </button>
+          <button onClick={() => setScreen("profile")} style={navButton}>
+            Profile
+          </button>
         </div>
       </div>
     );
-  } 
+  }
+
   if (screen === "confirmation") {
-  return (
-    <div
-      style={{
-        ...screenPage("#145a5a"),
-        ...appStyle,
-        padding: 28,
-        justifyContent: "center",
-        background: `
-          linear-gradient(rgba(20,90,90,0.35), rgba(20,90,90,0.35)),
-          url(${loginBg}) center/cover no-repeat
-        `,
-      }}
-    >
+    return (
       <div
         style={{
-          width: 90,
-          height: 90,
-          borderRadius: "50%",
-          border: "2px solid white",
-          display: "flex",
-          alignItems: "center",
+          ...screenPage(),
+          ...appStyle,
+          padding: 28,
           justifyContent: "center",
-          color: "white",
-          fontSize: 48,
-          marginBottom: 28,
-        }}
-      >
-        ✓
-      </div>
-
-      <h1
-        style={{
-          color: "white",
-          fontSize: 22,
-          margin: 0,
-          marginBottom: 10,
-        }}
-      >
-        Booking Confirmed!
-      </h1>
-
-      <p
-        style={{
-          color: "white",
-          opacity: 0.9,
-          textAlign: "center",
-          marginBottom: 28,
-          lineHeight: 1.5,
-        }}
-      >
-        Your stay has been successfully booked.
-      </p>
-
-      <div
-        style={{
-          width: "100%",
-          background: "rgba(255,255,255,0.14)",
-          border: "1px solid rgba(255,255,255,0.22)",
-          borderRadius: 26,
-          padding: 18,
-          boxSizing: "border-box",
-          backdropFilter: "blur(16px)",
-          marginBottom: 28,
+          background: `linear-gradient(rgba(20,90,90,0.35), rgba(20,90,90,0.35)), url(${loginBg}) center/cover no-repeat`,
         }}
       >
         <div
           style={{
+            width: 90,
+            height: 90,
+            borderRadius: "50%",
+            border: "2px solid white",
             display: "flex",
-            gap: 16,
             alignItems: "center",
-            marginBottom: 22,
+            justifyContent: "center",
+            color: "white",
+            fontSize: 48,
+            marginBottom: 28,
           }}
         >
-          <img
-            src={selectedRoom.image}
-            alt={selectedRoom.name}
+          ✓
+        </div>
+
+        <h1
+          style={{ color: "white", fontSize: 22, margin: 0, marginBottom: 10 }}
+        >
+          Booking Confirmed!
+        </h1>
+        <p
+          style={{
+            color: "white",
+            opacity: 0.9,
+            textAlign: "center",
+            marginBottom: 28,
+            lineHeight: 1.5,
+          }}
+        >
+          Your stay has been successfully booked.
+        </p>
+
+        <div
+          style={{
+            width: "100%",
+            background: "rgba(255,255,255,0.14)",
+            border: "1px solid rgba(255,255,255,0.22)",
+            borderRadius: 26,
+            padding: 18,
+            boxSizing: "border-box",
+            backdropFilter: "blur(16px)",
+            marginBottom: 28,
+          }}
+        >
+          <div
             style={{
-              width: 120,
-              height: 95,
-              objectFit: "cover",
-              borderRadius: 18,
+              display: "flex",
+              gap: 16,
+              alignItems: "center",
+              marginBottom: 22,
             }}
+          >
+            <img
+              src={activeRoom.image}
+              alt={activeRoom.name}
+              style={{
+                width: 120,
+                height: 95,
+                objectFit: "cover",
+                borderRadius: 18,
+              }}
+            />
+            <div style={{ textAlign: "left" }}>
+              <h2 style={{ color: "white", margin: 0, fontSize: 20 }}>
+                {activeRoom.name}
+              </h2>
+              <p style={{ color: "white", opacity: 0.85, marginTop: 6 }}>
+                Palmora Resort & SPA
+              </p>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginBottom: 20,
+              textAlign: "left",
+            }}
+          >
+            <div>
+              <p style={{ opacity: 0.7, marginBottom: 8 }}>Check-in</p>
+              <h3 style={{ color: "white", margin: 0 }}>
+                {formatDateLabel(roomSearch.checkInDate)}
+              </h3>
+            </div>
+
+            <div>
+              <p style={{ opacity: 0.7, marginBottom: 8 }}>Check-out</p>
+              <h3 style={{ color: "white", margin: 0 }}>
+                {formatDateLabel(roomSearch.checkOutDate)}
+              </h3>
+            </div>
+          </div>
+
+          <div style={{ textAlign: "left" }}>
+            <p style={{ opacity: 0.7, marginBottom: 8 }}>Guests</p>
+            <h3 style={{ color: "white", margin: 0 }}>
+              {roomSearch.guestCount} Adults
+            </h3>
+          </div>
+
+          <hr
+            style={{ borderColor: "rgba(255,255,255,0.16)", margin: "22px 0" }}
           />
 
           <div style={{ textAlign: "left" }}>
-            <h2
-              style={{
-                color: "white",
-                margin: 0,
-                fontSize: 20,
-              }}
-            >
-              {selectedRoom.name}
-            </h2>
-
-            <p
-              style={{
-                color: "white",
-                opacity: 0.85,
-                marginTop: 6,
-              }}
-            >
-              Palmora Resort & SPA
-            </p>
+            <p style={{ opacity: 0.7, marginBottom: 8 }}>Total Paid</p>
+            <h1 style={{ color: "white", margin: 0, fontSize: 48 }}>
+              ${activeRoom.price * bookingNights}
+            </h1>
           </div>
         </div>
 
-        <div
+        <button
+          onClick={() => setScreen("mybookings")}
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginBottom: 20,
-            textAlign: "left",
+            ...buttonStyle,
+            width: "100%",
+            padding: 16,
+            borderRadius: 14,
+            fontSize: 18,
           }}
         >
-          <div>
-            <p style={{ opacity: 0.7, marginBottom: 8 }}>Check-in</p>
-            <h3 style={{ color: "white", margin: 0 }}>
-              May 20, 2026
-            </h3>
-          </div>
-
-          <div>
-            <p style={{ opacity: 0.7, marginBottom: 8 }}>Check-out</p>
-            <h3 style={{ color: "white", margin: 0 }}>
-              May 24, 2026
-            </h3>
-          </div>
-        </div>
-
-        <div style={{ textAlign: "left" }}>
-          <p style={{ opacity: 0.7, marginBottom: 8 }}>Guests</p>
-          <h3 style={{ color: "white", margin: 0 }}>
-            2 Adults
-          </h3>
-        </div>
-
-        <hr
-          style={{
-            borderColor: "rgba(255,255,255,0.16)",
-            margin: "22px 0",
-          }}
-        />
-
-        <div style={{ textAlign: "left" }}>
-          <p style={{ opacity: 0.7, marginBottom: 8 }}>
-            Total Paid
-          </p>
-
-          <h1
-            style={{
-              color: "white",
-              margin: 0,
-              fontSize: 48,
-            }}
-          >
-            ${selectedRoom.price * 4}
-          </h1>
-        </div>
+          VIEW MY BOOKING
+        </button>
       </div>
+    );
+  }
 
-      <button
-        onClick={() => setScreen("mybookings")}
-        style={{
-          ...buttonStyle,
-          width: "100%",
-          padding: 16,
-          borderRadius: 14,
-          fontSize: 18,
-        }}
-      >
-        VIEW MY BOOKING
-      </button>
-    </div>
-  );
- }
+  return null;
 }
 
-
-
-const page = (bg) => ({
+const page = () => ({
   width: "100%",
   height: "100%",
-  background: bg,
+  background: "#145a5a",
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
@@ -1428,19 +1693,12 @@ const page = (bg) => ({
   overflow: "hidden",
 });
 
-const screenPage = (bg) => ({
+const screenPage = () => ({
   width: "100%",
   height: "100%",
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
-  backgroundImage: `
-    linear-gradient(rgba(10,40,40,0.82), rgba(10,40,40,0.82)),
-    url(${loginBg})
-  `,
-  backgroundSize: "cover",
-  backgroundPosition: "center",
-  backgroundRepeat: "no-repeat",
   color: "white",
   overflow: "hidden",
   boxSizing: "border-box",
@@ -1463,21 +1721,6 @@ const buttonStyle = {
   color: "white",
   cursor: "pointer",
   marginTop: 15,
-};
-
-const smallButton = {
-  padding: 10,
-  borderRadius: 15,
-  border: "none",
-  cursor: "pointer",
-  background: "#7fb0b0cd"
-};
-
-const cardStyle = {
-  background: "rgba(255,255,255,0.2)",
-  padding: 16,
-  borderRadius: 20,
-  marginTop: 12,
 };
 
 const navbarStyle = {
@@ -1510,6 +1753,16 @@ const paymentInputStyle = {
   borderRadius: 6,
   border: "1px solid rgba(255,255,255,0.65)",
   background: "rgba(255,255,255,0.08)",
+  color: "white",
+  boxSizing: "border-box",
+};
+
+const searchInputStyle = {
+  width: "100%",
+  padding: 11,
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.55)",
+  background: "rgba(255,255,255,0.18)",
   color: "white",
   boxSizing: "border-box",
 };
