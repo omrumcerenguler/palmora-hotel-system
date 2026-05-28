@@ -181,6 +181,12 @@ function seedDatabase(db) {
       "INSERT INTO ROOM (HotelID, RoomNumber, Type, Price, Availability) VALUES (?, ?, ?, ?, ?)",
       [1, "303", "Suites", 350, 1],
     );
+    // Ensure Nicosia (HotelID = 3) has at least one seeded room so
+    // searches for Nicosia return results in the demo environment.
+    db.run(
+      "INSERT INTO ROOM (HotelID, RoomNumber, Type, Price, Availability) VALUES (?, ?, ?, ?, ?)",
+      [3, "401", "Garden View", 200, 1],
+    );
 
     db.run("COMMIT;");
   } catch (error) {
