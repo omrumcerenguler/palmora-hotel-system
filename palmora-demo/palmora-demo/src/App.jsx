@@ -9,6 +9,11 @@ import loginBg from "./assets/loginbg.png";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
+const LUXURY_BASE_BACKGROUND =
+  "linear-gradient(180deg, #0f2f29 0%, #123a33 46%, #072a24 100%)";
+const LUXURY_OVERLAY =
+  "linear-gradient(rgba(4, 18, 15, 0.22), rgba(4, 18, 15, 0.44))";
+
 const FALLBACK_ROOM_IMAGES = {
   "Ocean View": oceanView,
   "Garden View": gardenView,
@@ -26,6 +31,94 @@ const ROOM_DESCRIPTIONS = {
 };
 
 const ROOM_CARD_FILTERS = ["All", "Ocean View", "Garden View", "Suites"];
+
+const ADMIN_CREDENTIALS = {
+  email: "admin@palmora.com",
+  password: "admin123",
+};
+
+const ADMIN_TABS = ["Dashboard", "Bookings", "Rooms", "Reports", "Profile"];
+
+const ADMIN_SAMPLE_RESERVATIONS = [
+  {
+    guest: "Amira Demir",
+    room: "Ocean View",
+    dates: "Jun 10 - Jun 16, 2025",
+    status: "Confirmed",
+  },
+  {
+    guest: "David Stone",
+    room: "Garden View",
+    dates: "Jun 12 - Jun 15, 2025",
+    status: "Pending",
+  },
+  {
+    guest: "Selin Kaya",
+    room: "Suites",
+    dates: "Jun 14 - Jun 20, 2025",
+    status: "Confirmed",
+  },
+];
+
+const ADMIN_SAMPLE_USERS = [
+  {
+    name: "Amira Demir",
+    email: "amira@example.com",
+    status: "Active",
+    booking: "Ocean View",
+  },
+  {
+    name: "David Stone",
+    email: "david@example.com",
+    status: "Disabled",
+    booking: "Garden View",
+  },
+  {
+    name: "Selin Kaya",
+    email: "selin@example.com",
+    status: "Active",
+    booking: "Suites",
+  },
+];
+
+const ADMIN_SAMPLE_ROOMS = [
+  {
+    number: "101",
+    type: "Ocean View",
+    availability: "Available",
+    price: "$220",
+  },
+  {
+    number: "202",
+    type: "Garden View",
+    availability: "Occupied",
+    price: "$190",
+  },
+  {
+    number: "303",
+    type: "Suites",
+    availability: "Available",
+    price: "$350",
+  },
+];
+
+const ADMIN_REPORT_ITEMS = [
+  {
+    label: "Occupancy Rate",
+    value: "74%",
+    meta: "+6% from last week",
+  },
+  {
+    label: "Average Stay",
+    value: "3.8 Nights",
+    meta: "Stable performance",
+  },
+  {
+    label: "Guest Satisfaction",
+    value: "96%",
+    meta: "+2% from last month",
+  },
+];
 
 const formatDateLabel = (dateValue) => {
   if (!dateValue) {
@@ -58,7 +151,6 @@ export default function App() {
     margin: "0 auto",
     position: "relative",
     overflow: "hidden",
-    background: "#0f3d3e",
     boxSizing: "border-box",
   };
 
@@ -78,6 +170,15 @@ export default function App() {
   const [roomsError, setRoomsError] = useState("");
   const [paymentError, setPaymentError] = useState("");
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminTab, setAdminTab] = useState("Dashboard");
+  const [adminCredentials, setAdminCredentials] = useState({
+    email: "",
+    password: "",
+  });
+  const [adminError, setAdminError] = useState("");
+  const [adminModal, setAdminModal] = useState(null);
 
   const demoRooms = [
     {
@@ -114,6 +215,7 @@ export default function App() {
     roomSearch.checkInDate,
     roomSearch.checkOutDate,
   );
+  const adminAvailableRoomsCount = availableRooms.length || 23;
 
   const normalizeRoom = (room) => ({
     ...room,
@@ -125,6 +227,698 @@ export default function App() {
         : `${API_BASE}${room.image}`
       : FALLBACK_ROOM_IMAGES[room.name] || suite,
   });
+
+  const openAdminModal = (title, detail) => {
+    setAdminModal({ title, detail });
+  };
+
+  const closeAdminModal = () => setAdminModal(null);
+
+  const resetAdminSession = () => {
+    setIsAdmin(false);
+    setShowAdminLogin(false);
+    setAdminTab("Dashboard");
+    setAdminCredentials({ email: "", password: "" });
+    setAdminError("");
+    setAdminModal(null);
+    setScreen("login");
+  };
+
+  const handleAdminLogin = () => {
+    const email = adminCredentials.email.trim().toLowerCase();
+    const password = adminCredentials.password;
+
+    if (
+      email === ADMIN_CREDENTIALS.email &&
+      password === ADMIN_CREDENTIALS.password
+    ) {
+      setAdminError("");
+      setIsAdmin(true);
+      setAdminTab("Dashboard");
+      return;
+    }
+
+    setAdminError("Invalid admin credentials.");
+  };
+
+  const renderAdminModal = () => {
+    if (!adminModal) {
+      return null;
+    }
+
+    return (
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(2, 10, 8, 0.72)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 80,
+          padding: 18,
+          boxSizing: "border-box",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            borderRadius: 26,
+            padding: 20,
+            background: "linear-gradient(180deg, #12352d 0%, #071916 100%)",
+            border: "1px solid rgba(198, 165, 92, 0.36)",
+            boxShadow: "0 20px 50px rgba(0, 0, 0, 0.45)",
+          }}
+        >
+          <h2 style={{ margin: 0, color: "var(--text-h)", fontSize: 24 }}>
+            {adminModal.title}
+          </h2>
+          <p style={{ color: "rgba(255,255,255,0.82)", lineHeight: 1.6 }}>
+            {adminModal.detail}
+          </p>
+          <button
+            onClick={closeAdminModal}
+            style={{
+              width: "100%",
+              border: "none",
+              borderRadius: 14,
+              padding: 14,
+              background: "var(--cta)",
+              color: "#0b271d",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderAdminBottomNav = () => (
+    <div style={adminNavStyle}>
+      {ADMIN_TABS.map((tab) => {
+        const active = adminTab === tab;
+        const tabIcons = {
+          Dashboard: "⌂",
+          Bookings: "◫",
+          Rooms: "◧",
+          Reports: "▤",
+          Profile: "◉",
+        };
+        return (
+          <button
+            key={tab}
+            onClick={() => setAdminTab(tab)}
+            style={{
+              ...adminNavButtonStyle,
+              color: active ? "var(--text-h)" : "rgba(255,255,255,0.62)",
+              background: active
+                ? "linear-gradient(180deg, rgba(18, 74, 66, 0.98) 0%, rgba(9, 40, 36, 0.98) 100%)"
+                : "transparent",
+              boxShadow: active
+                ? "0 10px 20px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(217, 194, 124, 0.16)"
+                : "none",
+              transform: active ? "translateY(-8px)" : "translateY(0)",
+            }}
+          >
+            <span
+              style={{
+                fontSize: 18,
+                lineHeight: 1,
+                color: active ? "var(--accent)" : "rgba(255,255,255,0.56)",
+              }}
+            >
+              {tabIcons[tab]}
+            </span>
+            {tab}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const renderAdminDashboard = () => (
+    <div style={adminContentShellStyle}>
+      <div style={adminTopBarStyle}>
+        <button type="button" style={adminHeaderIconButtonStyle}>
+          ☰
+        </button>
+        <div style={adminTopBarTitleWrapStyle}>
+          <h1 style={adminTopBarTitleStyle}>Admin Dashboard</h1>
+        </div>
+        <button type="button" style={adminHeaderIconButtonStyle}>
+          🔔
+        </button>
+      </div>
+
+      <div
+        style={{
+          textAlign: "left",
+          padding: "0 4px",
+          marginBottom: "18px",
+        }}
+      >
+        <h2
+          style={{
+            margin: 0,
+            color: "var(--text-h)",
+            fontSize: "23px",
+            fontWeight: "700",
+            letterSpacing: -0.2,
+          }}
+        >
+          Good Evening, Admin 👋
+        </h2>
+        <p
+          style={{
+            margin: "6px 0 0",
+            color: "rgba(247, 228, 176, 0.78)",
+            fontSize: "13px",
+            lineHeight: 1.45,
+          }}
+        >
+          Here&apos;s what&apos;s happening at Palmora today.
+        </p>
+      </div>
+
+      <div style={adminStatGridStyle}>
+        {[
+          {
+            icon: "📅",
+            label: "Total Bookings",
+            value: "87",
+            meta: "+12% from last month",
+          },
+          {
+            icon: "👥",
+            label: "Active Guests",
+            value: "124",
+            meta: "+8% from last month",
+          },
+          {
+            icon: "🛏️",
+            label: "Available Rooms",
+            value: String(adminAvailableRoomsCount),
+            meta: "+5% from last month",
+          },
+          {
+            icon: "💰",
+            label: "Revenue (This Month)",
+            value: "$12,450",
+            meta: "+15% from last month",
+          },
+        ].map((stat) => (
+          <div key={stat.label} style={adminStatCardStyle}>
+            <div style={adminStatIconWrapStyle}>{stat.icon}</div>
+            <p style={adminStatLabelStyle}>{stat.label}</p>
+            <h2 style={adminStatValueStyle}>{stat.value}</h2>
+            <p style={adminStatMetaStyle}>{stat.meta}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={adminPanelStyle}>
+        <div style={adminPanelHeaderStyle}>
+          <h2 style={adminPanelTitleStyle}>Latest Reservations</h2>
+          <button type="button" style={adminViewAllTextStyle}>
+            View All
+          </button>
+        </div>
+        <div style={adminListStyle}>
+          {ADMIN_SAMPLE_RESERVATIONS.map((row) => (
+            <div
+              key={`${row.guest}-${row.room}`}
+              style={adminReservationRowStyle}
+            >
+              <div
+                style={{
+                  ...adminReservationPreviewStyle,
+                }}
+              >
+                <img
+                  src={FALLBACK_ROOM_IMAGES[row.room] || suite}
+                  alt={row.room}
+                  style={adminReservationPreviewImageStyle}
+                />
+              </div>
+              <div style={adminReservationInfoStyle}>
+                <p style={adminRowPrimaryStyle}>{row.room}</p>
+                <p style={adminRowSecondaryStyle}>{row.guest}</p>
+                <p style={adminReservationDateStyle}>{row.dates}</p>
+              </div>
+              <span
+                style={{
+                  ...adminBadgeStyle,
+                  background:
+                    row.status === "Confirmed"
+                      ? "rgba(47, 141, 87, 0.22)"
+                      : "rgba(168, 106, 46, 0.2)",
+                  color:
+                    row.status === "Confirmed"
+                      ? "var(--success)"
+                      : "var(--warn)",
+                }}
+              >
+                {row.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {renderAdminBottomNav()}
+    </div>
+  );
+
+  const renderAdminBookings = () => (
+    <div style={adminContentShellStyle}>
+      <div style={adminHeaderStyle}>
+        <div>
+          <p style={adminEyebrowStyle}>Management</p>
+          <h1 style={adminHeadingStyle}>Bookings</h1>
+          <p style={adminSubheadingStyle}>
+            Review guest activity and manage access locally.
+          </p>
+        </div>
+      </div>
+
+      <div style={adminPanelStyle}>
+        {ADMIN_SAMPLE_USERS.map((user) => (
+          <div key={user.email} style={adminManagementRowStyle}>
+            <div>
+              <p style={adminRowPrimaryStyle}>{user.name}</p>
+              <p style={adminRowSecondaryStyle}>{user.email}</p>
+              <p style={adminRowSecondaryStyle}>
+                Latest booking: {user.booking}
+              </p>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <span
+                style={{
+                  ...adminBadgeStyle,
+                  background:
+                    user.status === "Active"
+                      ? "rgba(71, 201, 115, 0.2)"
+                      : "rgba(255, 166, 66, 0.2)",
+                  color:
+                    user.status === "Active" ? "var(--success)" : "var(--warn)",
+                }}
+              >
+                {user.status}
+              </span>
+              <div style={adminActionRowStyle}>
+                <button
+                  onClick={() =>
+                    openAdminModal(
+                      "View User",
+                      `${user.name} | ${user.email} | Current booking: ${user.booking}`,
+                    )
+                  }
+                  style={adminGhostButtonStyle}
+                >
+                  View
+                </button>
+                <button
+                  onClick={() =>
+                    openAdminModal(
+                      "Disable User",
+                      `${user.name} can be disabled in the real system. This demo only previews the action and does not change any backend data.`,
+                    )
+                  }
+                  style={adminOutlineButtonStyle}
+                >
+                  Disable User
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {renderAdminBottomNav()}
+    </div>
+  );
+
+  const renderAdminRooms = () => (
+    <div style={adminContentShellStyle}>
+      <div style={adminTopBarStyle}>
+        <button type="button" style={adminHeaderIconButtonStyle}>
+          ←
+        </button>
+        <div style={adminTopBarTitleWrapStyle}>
+          <h1 style={adminTopBarTitleStyle}>Room Management</h1>
+        </div>
+        <button type="button" style={adminAddRoomButtonStyle}>
+          + Add Room
+        </button>
+      </div>
+
+      <div style={{ ...adminPanelStyle, marginBottom: 16 }}>
+        {ADMIN_SAMPLE_ROOMS.map((room) => {
+          const roomImage = FALLBACK_ROOM_IMAGES[room.type] || suite;
+          const available = room.availability === "Available";
+          return (
+            <div key={room.number} style={adminRoomCardStyle}>
+              <img
+                src={roomImage}
+                alt={room.type}
+                style={adminRoomThumbStyle}
+              />
+              <div style={adminRoomInfoStyle}>
+                <div style={adminRoomTitleRowStyle}>
+                  <div>
+                    <p style={adminRoomTitleStyle}>{room.type} Room</p>
+                    <p style={adminRoomPriceStyle}>{room.price} / night</p>
+                  </div>
+                  <span
+                    style={{
+                      ...adminBadgeStyle,
+                      background: available
+                        ? "rgba(52, 166, 103, 0.28)"
+                        : "rgba(207, 79, 66, 0.26)",
+                      color: available ? "var(--success)" : "var(--danger)",
+                    }}
+                  >
+                    {room.availability}
+                  </span>
+                </div>
+
+                <div style={adminActionRowStyle}>
+                  <button
+                    onClick={() =>
+                      openAdminModal(
+                        "Edit Room",
+                        `${room.type} (Room ${room.number}) is shown in demo mode only. No backend edit is performed.`,
+                      )
+                    }
+                    style={adminGhostButtonStyle}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() =>
+                      openAdminModal(
+                        "Availability",
+                        `Room ${room.number} currently shows ${room.availability}. This preview does not update backend data.`,
+                      )
+                    }
+                    style={adminOutlineButtonStyle}
+                  >
+                    Availability
+                  </button>
+                  <button
+                    onClick={() =>
+                      openAdminModal(
+                        "Price",
+                        `Room ${room.number} is priced at ${room.price} in this design preview.`,
+                      )
+                    }
+                    style={adminGhostButtonStyle}
+                  >
+                    Price
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={adminPanelStyle}>
+        <div style={adminPanelHeaderStyle}>
+          <h2 style={adminPanelTitleStyle}>Recent Bookings</h2>
+          <button type="button" style={adminViewAllTextStyle}>
+            View All
+          </button>
+        </div>
+        <div style={adminListStyle}>
+          {ADMIN_SAMPLE_RESERVATIONS.map((row) => (
+            <div
+              key={`${row.room}-${row.dates}`}
+              style={adminRecentBookingRowStyle}
+            >
+              <div style={adminRecentBookingNameStyle}>{row.guest}</div>
+              <div style={adminRecentBookingMetaStyle}>{row.room}</div>
+              <div style={adminRecentBookingMetaStyle}>{row.dates}</div>
+              <span
+                style={{
+                  ...adminBadgeStyle,
+                  background:
+                    row.status === "Confirmed"
+                      ? "rgba(52, 166, 103, 0.22)"
+                      : "rgba(207, 79, 66, 0.22)",
+                  color:
+                    row.status === "Confirmed"
+                      ? "var(--success)"
+                      : "var(--warn)",
+                }}
+              >
+                {row.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {renderAdminBottomNav()}
+    </div>
+  );
+
+  const renderAdminReports = () => (
+    <div style={adminContentShellStyle}>
+      <div style={adminHeaderStyle}>
+        <div>
+          <p style={adminEyebrowStyle}>Analytics</p>
+          <h1 style={adminHeadingStyle}>Reports</h1>
+          <p style={adminSubheadingStyle}>
+            A local-only snapshot of hotel performance.
+          </p>
+        </div>
+      </div>
+
+      <div style={adminPanelStyle}>
+        {ADMIN_REPORT_ITEMS.map((item) => (
+          <div key={item.label} style={adminReportRowStyle}>
+            <div>
+              <p style={adminRowPrimaryStyle}>{item.label}</p>
+              <p style={adminRowSecondaryStyle}>{item.meta}</p>
+            </div>
+            <h2 style={adminMiniValueStyle}>{item.value}</h2>
+          </div>
+        ))}
+      </div>
+
+      <div style={adminPanelStyle}>
+        <p style={adminPanelTitleStyle}>Demo notes</p>
+        <p style={adminRowSecondaryStyle}>
+          Reports are intentionally simulated so the admin module stays
+          UI-driven and safe for the demo scope.
+        </p>
+      </div>
+
+      {renderAdminBottomNav()}
+    </div>
+  );
+
+  const renderAdminProfile = () => (
+    <div style={adminContentShellStyle}>
+      <div style={adminHeaderStyle}>
+        <div>
+          <p style={adminEyebrowStyle}>Account</p>
+          <h1 style={adminHeadingStyle}>Profile</h1>
+          <p style={adminSubheadingStyle}>
+            Administrative access is local to this demo session.
+          </p>
+        </div>
+      </div>
+
+      <div style={adminPanelStyle}>
+        <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+          <div style={adminAvatarStyle}>A</div>
+          <div>
+            <p style={adminRowPrimaryStyle}>Admin User</p>
+            <p style={adminRowSecondaryStyle}>admin@palmora.com</p>
+          </div>
+        </div>
+        <button onClick={resetAdminSession} style={adminLogoutButtonStyle}>
+          Exit Admin Portal
+        </button>
+      </div>
+
+      {renderAdminBottomNav()}
+    </div>
+  );
+
+  const renderAdminLoginView = () => (
+    <div
+      style={{
+        ...appStyle,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+        position: "relative",
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.42)), url(${loginBg})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <div
+        style={{
+          width: "82%",
+          maxWidth: 360,
+          background: "rgba(255, 255, 255, 0.18)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          border: "1px solid rgba(255, 255, 255, 0.24)",
+          borderRadius: 28,
+          padding: "22px 20px 20px",
+          boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          boxShadow: "0 24px 60px rgba(0, 0, 0, 0.34)",
+        }}
+      >
+        <img
+          src={palmoraLogo}
+          alt="Palmora logo"
+          style={{
+            width: 190,
+            maxWidth: "78%",
+            marginBottom: 8,
+            display: "block",
+          }}
+        />
+
+        <p
+          style={{
+            margin: 0,
+            color: "#ead9a0",
+            fontSize: 11,
+            letterSpacing: 3.2,
+            fontWeight: 700,
+          }}
+        >
+          HOTELS & RESORTS
+        </p>
+
+        <h1
+          style={{
+            margin: "18px 0 6px",
+            color: "#ffffff",
+            fontSize: 36,
+            fontWeight: 300,
+            letterSpacing: 0.4,
+            textAlign: "center",
+          }}
+        >
+          Admin Portal
+        </h1>
+
+        <p
+          style={{
+            margin: 0,
+            color: "rgba(255, 255, 255, 0.82)",
+            fontSize: 14,
+            textAlign: "center",
+            marginBottom: 22,
+          }}
+        >
+          Sign in to continue
+        </p>
+
+        <input
+          value={adminCredentials.email}
+          onChange={(event) =>
+            setAdminCredentials((current) => ({
+              ...current,
+              email: event.target.value,
+            }))
+          }
+          placeholder="Admin Email"
+          style={{
+            ...signupInputStyle,
+            marginBottom: 10,
+            background: "rgba(255, 255, 255, 0.34)",
+            border: "1px solid rgba(255, 255, 255, 0.28)",
+            color: "#111111",
+          }}
+        />
+        <input
+          value={adminCredentials.password}
+          onChange={(event) =>
+            setAdminCredentials((current) => ({
+              ...current,
+              password: event.target.value,
+            }))
+          }
+          type="password"
+          placeholder="Password"
+          style={{
+            ...signupInputStyle,
+            marginBottom: 8,
+            background: "rgba(255, 255, 255, 0.34)",
+            border: "1px solid rgba(255, 255, 255, 0.28)",
+            color: "#111111",
+          }}
+        />
+
+        <label
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            color: "rgba(255, 255, 255, 0.9)",
+            fontSize: 13,
+            margin: "6px 0 10px",
+            cursor: "pointer",
+            userSelect: "none",
+          }}
+        >
+          <input
+            type="checkbox"
+            style={{
+              width: 16,
+              height: 16,
+              accentColor: "var(--accent)",
+              cursor: "pointer",
+            }}
+          />
+          <span>Remember me</span>
+        </label>
+
+        {adminError && <p style={adminErrorStyle}>{adminError}</p>}
+
+        <button
+          onClick={handleAdminLogin}
+          style={{
+            ...adminPrimaryButtonStyle,
+            background: "var(--bg)",
+            color: "#ffffff",
+            boxShadow: "0 12px 24px rgba(7, 27, 23, 0.28)",
+            marginTop: 4,
+          }}
+        >
+          Login
+        </button>
+
+        <button
+          onClick={() => {
+            setShowAdminLogin(false);
+            setAdminError("");
+          }}
+          style={adminBackButtonStyle}
+        >
+          Back to Guest Login
+        </button>
+      </div>
+    </div>
+  );
 
   useEffect(() => {
     if (screen !== "rooms") {
@@ -224,13 +1018,48 @@ export default function App() {
     }
   };
 
+  if (isAdmin) {
+    const adminShellStyle = {
+      width: "440px",
+      height: "777px",
+      margin: "0 auto",
+      position: "relative",
+      overflow: "hidden",
+      /* Use longhand properties to avoid mixing shorthand with background-*/
+      /* longhand (backgroundSize/Position/Repeat) elsewhere and prevent */
+      /* react warnings about removing conflicting style properties. */
+      backgroundImage: "linear-gradient(180deg, #072a24 0%, #031411 100%)",
+      backgroundColor: "#072a24",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "stretch",
+    };
+
+    console.log("ACTIVE ADMIN MASTER SHELL STYLES:", adminShellStyle);
+
+    return (
+      <div style={adminShellStyle}>
+        {adminTab === "Dashboard" && renderAdminDashboard()}
+        {adminTab === "Bookings" && renderAdminBookings()}
+        {adminTab === "Rooms" && renderAdminRooms()}
+        {adminTab === "Reports" && renderAdminReports()}
+        {adminTab === "Profile" && renderAdminProfile()}
+        {renderAdminModal()}
+      </div>
+    );
+  }
+
+  if (showAdminLogin) {
+    return renderAdminLoginView();
+  }
+
   if (screen === "login") {
     return (
       <div
         style={{
           ...page(),
           ...appStyle,
-          backgroundImage: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url(${loginBg})`,
+          backgroundImage: `${LUXURY_OVERLAY}, url(${loginBg})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
@@ -336,6 +1165,16 @@ export default function App() {
               Sign up
             </span>
           </p>
+
+          <button
+            onClick={() => {
+              setShowAdminLogin(true);
+              setAdminError("");
+            }}
+            style={adminPortalLinkStyle}
+          >
+            Admin Portal
+          </button>
         </div>
       </div>
     );
@@ -347,7 +1186,7 @@ export default function App() {
         style={{
           ...page(),
           ...appStyle,
-          backgroundImage: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url(${loginBg})`,
+          backgroundImage: `${LUXURY_OVERLAY}, url(${loginBg})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
@@ -429,6 +1268,16 @@ export default function App() {
               Log in
             </span>
           </p>
+
+          <button
+            onClick={() => {
+              setShowAdminLogin(true);
+              setAdminError("");
+            }}
+            style={adminPortalLinkStyle}
+          >
+            Admin Portal
+          </button>
         </div>
       </div>
     );
@@ -440,7 +1289,7 @@ export default function App() {
         style={{
           ...screenPage(),
           ...appStyle,
-          backgroundImage: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url(${homeBg})`,
+          backgroundImage: `${LUXURY_OVERLAY}, url(${homeBg})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
@@ -524,7 +1373,7 @@ export default function App() {
         style={{
           ...screenPage(),
           ...appStyle,
-          backgroundImage: `linear-gradient(rgba(20,90,90,0.82), rgba(20,90,90,0.82)), url(${loginBg})`,
+          backgroundImage: `${LUXURY_OVERLAY}, url(${loginBg})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
           padding: 24,
@@ -635,7 +1484,7 @@ export default function App() {
                 borderRadius: 20,
                 border: "none",
                 background: activeFilter === filter ? "white" : "transparent",
-                color: activeFilter === filter ? "#145a5a" : "white",
+                color: activeFilter === filter ? "var(--bg)" : "white",
                 cursor: "pointer",
               }}
             >
@@ -648,8 +1497,6 @@ export default function App() {
           <p
             style={{
               color: "white",
-              width: "100%",
-              textAlign: "left",
               marginTop: 0,
             }}
           >
@@ -788,7 +1635,7 @@ export default function App() {
           width: 390,
           height: 844,
           margin: "0 auto",
-          background: "#1f5a55",
+          background: LUXURY_BASE_BACKGROUND,
           borderRadius: 34,
           overflow: "hidden",
           position: "relative",
@@ -837,8 +1684,7 @@ export default function App() {
           style={{
             height: 544,
             padding: "24px 22px",
-            background: "rgba(20,90,90,0.82)",
-            backgroundImage: `linear-gradient(rgba(20,90,90,0.82), rgba(20,90,90,0.82)), url(${loginBg})`,
+            backgroundImage: `${LUXURY_OVERLAY}, url(${loginBg})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             boxSizing: "border-box",
@@ -963,7 +1809,10 @@ export default function App() {
           ...appStyle,
           padding: "22px 24px",
           justifyContent: "flex-start",
-          background: `linear-gradient(rgba(20,90,90,0.35), rgba(20,90,90,0.35)), url(${loginBg}) center/cover no-repeat`,
+          backgroundImage: `${LUXURY_OVERLAY}, url(${loginBg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
         }}
       >
         <button
@@ -1142,7 +1991,7 @@ export default function App() {
           ...screenPage(),
           ...appStyle,
           padding: 28,
-          backgroundImage: `linear-gradient(rgba(20,90,90,0.78), rgba(20,90,90,0.78)), url(${loginBg})`,
+          backgroundImage: `${LUXURY_OVERLAY}, url(${loginBg})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
@@ -1305,7 +2154,10 @@ export default function App() {
           ...screenPage(),
           ...appStyle,
           padding: 28,
-          background: `linear-gradient(rgba(20,90,90,0.25), rgba(20,90,90,0.25)), url(${loginBg}) center/cover no-repeat`,
+          backgroundImage: `${LUXURY_OVERLAY}, url(${loginBg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
         }}
       >
         <button
@@ -1426,7 +2278,7 @@ export default function App() {
           ...screenPage(),
           ...appStyle,
           padding: 28,
-          backgroundImage: `linear-gradient(rgba(20,90,90,0.82), rgba(20,90,90,0.82)), url(${loginBg})`,
+          backgroundImage: `${LUXURY_OVERLAY}, url(${loginBg})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
@@ -1542,7 +2394,10 @@ export default function App() {
           ...appStyle,
           padding: 28,
           justifyContent: "center",
-          background: `linear-gradient(rgba(20,90,90,0.35), rgba(20,90,90,0.35)), url(${loginBg}) center/cover no-repeat`,
+          backgroundImage: `${LUXURY_OVERLAY}, url(${loginBg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
         }}
       >
         <div
@@ -1683,7 +2538,11 @@ export default function App() {
 const page = () => ({
   width: "100%",
   height: "100%",
-  background: "#145a5a",
+  /* Use backgroundImage instead of shorthand to avoid mixing with
+     backgroundSize/Position/Repeat in components that spread `page()`
+     and also set backgroundImage (prevents React warnings). */
+  backgroundImage: LUXURY_BASE_BACKGROUND,
+  backgroundColor: "#071b17",
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
@@ -1696,6 +2555,8 @@ const page = () => ({
 const screenPage = () => ({
   width: "100%",
   height: "100%",
+  backgroundImage: LUXURY_BASE_BACKGROUND,
+  backgroundColor: "#071b17",
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
@@ -1776,4 +2637,533 @@ const signupInputStyle = {
   background: "rgba(255,255,255,0.28)",
   color: "black",
   boxSizing: "border-box",
+};
+
+const adminPortalLinkStyle = {
+  marginTop: 8,
+  background: "transparent",
+  border: "none",
+  color: "var(--accent)",
+  textDecoration: "underline",
+  cursor: "pointer",
+  fontSize: 12,
+  letterSpacing: 1,
+  alignSelf: "center",
+};
+
+const adminContentShellStyle = {
+  width: "100%",
+  height: "100%",
+  padding: 20,
+  paddingBottom: 118,
+  boxSizing: "border-box",
+  position: "relative",
+  overflowY: "auto",
+  background: "transparent",
+  backgroundColor: "transparent",
+  color: "white",
+  display: "flex",
+  flexDirection: "column",
+  gap: 14,
+};
+
+const adminLoginShellStyle = {
+  width: "100%",
+  maxWidth: 360,
+  background: "rgba(9, 31, 25, 0.82)",
+  borderRadius: 30,
+  padding: 28,
+  border: "1px solid rgba(212, 183, 118, 0.35)",
+  boxShadow: "0 22px 60px rgba(0, 0, 0, 0.42)",
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+  boxSizing: "border-box",
+};
+
+const adminEyebrowStyle = {
+  margin: 0,
+  color: "var(--accent)",
+  textTransform: "uppercase",
+  letterSpacing: 2,
+  fontSize: 12,
+};
+
+const adminHeadingStyle = {
+  margin: 0,
+  fontSize: 28,
+  lineHeight: 1.1,
+  color: "var(--text-h)",
+};
+
+const adminSubheadingStyle = {
+  margin: 0,
+  color: "rgba(255,255,255,0.76)",
+  fontSize: 14,
+  lineHeight: 1.5,
+};
+
+const adminInputStyle = {
+  width: "100%",
+  padding: 14,
+  borderRadius: 16,
+  border: "1px solid rgba(212, 183, 118, 0.34)",
+  background: "rgba(255,255,255,0.07)",
+  color: "white",
+  boxSizing: "border-box",
+  outline: "none",
+};
+
+const adminErrorStyle = {
+  margin: 0,
+  color: "#ffb4b4",
+  fontSize: 13,
+};
+
+const adminPrimaryButtonStyle = {
+  marginTop: 8,
+  width: "100%",
+  border: "none",
+  borderRadius: 16,
+  padding: 15,
+  background: "var(--cta)",
+  color: "#0a261c",
+  fontWeight: 800,
+  cursor: "pointer",
+  boxShadow:
+    "0 0 0 1px rgba(180,255,87,0.2), 0 12px 24px rgba(180,255,87,0.22)",
+};
+
+const adminBackButtonStyle = {
+  background: "transparent",
+  border: "none",
+  color: "var(--accent)",
+  textDecoration: "underline",
+  cursor: "pointer",
+  fontSize: 13,
+  marginTop: 4,
+};
+
+const adminHeaderStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 14,
+  marginBottom: 18,
+};
+
+const adminTopBarStyle = {
+  display: "grid",
+  gridTemplateColumns: "44px 1fr auto",
+  alignItems: "center",
+  gap: 10,
+  marginBottom: 14,
+  padding: "2px 0 4px",
+};
+
+const adminHeaderIconButtonStyle = {
+  width: 40,
+  height: 40,
+  border: "none",
+  borderRadius: 14,
+  background: "rgba(255,255,255,0.05)",
+  color: "var(--text-h)",
+  fontSize: 20,
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  border: "1px solid rgba(217, 194, 124, 0.14)",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+};
+
+const adminTopBarTitleWrapStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const adminTopBarTitleStyle = {
+  margin: 0,
+  color: "var(--text-h)",
+  fontSize: 20,
+  fontWeight: 700,
+  letterSpacing: 0.2,
+  textAlign: "center",
+};
+
+const adminAddRoomButtonStyle = {
+  border: "1px solid rgba(112, 216, 149, 0.28)",
+  borderRadius: 14,
+  padding: "10px 14px",
+  background: "rgba(71, 201, 115, 0.18)",
+  color: "#b8ffd0",
+  fontWeight: 700,
+  fontSize: 12,
+  cursor: "pointer",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
+};
+
+const adminPrimaryActionStyle = {
+  border: "none",
+  borderRadius: 16,
+  padding: "12px 16px",
+  background: "var(--cta)",
+  color: "#0a261c",
+  fontWeight: 800,
+  cursor: "pointer",
+  flexShrink: 0,
+};
+
+const adminStatGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: 12,
+  marginBottom: 4,
+};
+
+const adminStatCardStyle = {
+  minHeight: 140,
+  background:
+    "linear-gradient(180deg, rgba(20, 73, 66, 0.96) 0%, rgba(10, 40, 35, 0.98) 100%)",
+  borderRadius: 22,
+  padding: "16px 16px 14px",
+  border: "1px solid rgba(217, 194, 124, 0.14)",
+  boxShadow: "0 16px 34px rgba(0, 0, 0, 0.20)",
+};
+
+const adminStatIconWrapStyle = {
+  width: 34,
+  height: 34,
+  borderRadius: 10,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "var(--accent)",
+  fontSize: 20,
+  marginBottom: 10,
+  background: "rgba(217, 194, 124, 0.12)",
+  border: "1px solid rgba(217, 194, 124, 0.18)",
+};
+
+const adminStatLabelStyle = {
+  margin: 0,
+  color: "rgba(247, 240, 212, 0.74)",
+  fontSize: 12,
+  fontWeight: 500,
+};
+
+const adminStatValueStyle = {
+  margin: "8px 0 6px",
+  fontSize: 30,
+  lineHeight: 1,
+  color: "var(--text-h)",
+  fontWeight: 600,
+};
+
+const adminMiniValueStyle = {
+  margin: "8px 0 4px",
+  fontSize: 24,
+  lineHeight: 1,
+  color: "var(--cta)",
+};
+
+const adminStatMetaStyle = {
+  margin: 0,
+  color: "var(--success)",
+  fontSize: 12,
+};
+
+const adminPanelStyle = {
+  background:
+    "linear-gradient(180deg, rgba(17, 58, 52, 0.94) 0%, rgba(8, 29, 25, 0.98) 100%)",
+  borderRadius: 26,
+  padding: 18,
+  border: "1px solid rgba(217, 194, 124, 0.14)",
+  boxShadow: "0 18px 40px rgba(0, 0, 0, 0.22)",
+  marginBottom: 14,
+};
+
+const adminPanelHeaderStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+  marginBottom: 14,
+};
+
+const adminPanelTitleStyle = {
+  margin: 0,
+  fontSize: 18,
+  color: "var(--text-h)",
+  letterSpacing: 0.2,
+};
+
+const adminPanelPillStyle = {
+  borderRadius: 999,
+  padding: "6px 10px",
+  background: "var(--success-bg)",
+  color: "var(--cta)",
+  fontSize: 12,
+};
+
+const adminViewAllTextStyle = {
+  border: "none",
+  background: "transparent",
+  color: "var(--text-h)",
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: "pointer",
+  padding: 0,
+  margin: 0,
+};
+
+const adminListStyle = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+};
+
+const adminReservationRowStyle = {
+  display: "grid",
+  gridTemplateColumns: "54px minmax(0, 1fr) auto",
+  gap: 12,
+  alignItems: "center",
+  padding: "12px 0",
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
+};
+
+const adminReservationPreviewStyle = {
+  width: 50,
+  height: 50,
+  borderRadius: 14,
+  background:
+    "linear-gradient(135deg, rgba(217, 194, 124, 0.48) 0%, rgba(20, 90, 90, 0.92) 100%)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)",
+  overflow: "hidden",
+};
+
+const adminReservationPreviewImageStyle = {
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+  display: "block",
+};
+
+const adminReservationInfoStyle = {
+  minWidth: 0,
+};
+
+const adminReservationDateStyle = {
+  color: "rgba(247, 240, 212, 0.68)",
+  fontSize: 13,
+  textAlign: "left",
+  lineHeight: 1.3,
+  marginTop: 4,
+};
+
+const adminManagementRowStyle = {
+  display: "grid",
+  gridTemplateColumns: "1.2fr 1fr",
+  gap: 12,
+  alignItems: "start",
+  padding: "14px 0",
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
+};
+
+const adminRoomCardStyle = {
+  display: "grid",
+  gridTemplateColumns: "114px minmax(0, 1fr)",
+  gap: 14,
+  alignItems: "center",
+  padding: 14,
+  borderRadius: 22,
+  background:
+    "linear-gradient(180deg, rgba(19, 74, 66, 0.96) 0%, rgba(10, 35, 31, 0.98) 100%)",
+  border: "1px solid rgba(217, 194, 124, 0.14)",
+  boxShadow: "0 16px 34px rgba(0, 0, 0, 0.22)",
+};
+const adminRoomThumbStyle = {
+  width: 114,
+  height: 86,
+  objectFit: "cover",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.14)",
+  boxShadow: "0 12px 26px rgba(0, 0, 0, 0.24)",
+};
+
+const adminRoomInfoStyle = {
+  minWidth: 0,
+};
+
+const adminRoomTitleRowStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 10,
+  marginBottom: 8,
+};
+
+const adminRoomTitleStyle = {
+  margin: 0,
+  color: "var(--text-h)",
+  fontSize: 16,
+  fontWeight: 700,
+};
+
+const adminRoomPriceStyle = {
+  margin: "4px 0 0",
+  color: "rgba(247, 240, 212, 0.78)",
+  fontSize: 13,
+};
+
+const adminRecentBookingRowStyle = {
+  display: "grid",
+  gridTemplateColumns: "1.2fr 1fr auto",
+  gap: 12,
+  alignItems: "center",
+  padding: "12px 0",
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
+};
+
+const adminRecentBookingNameStyle = {
+  color: "var(--text-h)",
+  fontSize: 14,
+  fontWeight: 700,
+};
+
+const adminRecentBookingMetaStyle = {
+  color: "rgba(247, 240, 212, 0.68)",
+  fontSize: 12,
+};
+
+const adminReportRowStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 10,
+  padding: "14px 0",
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
+};
+
+const adminRowPrimaryStyle = {
+  margin: 0,
+  color: "var(--text-h)",
+  fontSize: 15,
+  fontWeight: 700,
+};
+
+const adminRowSecondaryStyle = {
+  margin: "4px 0 0",
+  color: "rgba(247, 240, 212, 0.66)",
+  fontSize: 12,
+  lineHeight: 1.4,
+};
+
+const adminBadgeStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: 999,
+  padding: "8px 12px",
+  fontSize: 12,
+  fontWeight: 700,
+  marginBottom: 0,
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)",
+};
+
+const adminActionRowStyle = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
+};
+
+const adminGhostButtonStyle = {
+  border: "1px solid rgba(217, 194, 124, 0.26)",
+  borderRadius: 12,
+  padding: "8px 12px",
+  background: "rgba(217, 194, 124, 0.08)",
+  color: "var(--text-h)",
+  cursor: "pointer",
+};
+
+const adminOutlineButtonStyle = {
+  border: "1px solid rgba(216, 178, 99, 0.34)",
+  borderRadius: 12,
+  padding: "8px 12px",
+  background: "rgba(217, 194, 124, 0.08)",
+  color: "#ead9a0",
+  cursor: "pointer",
+};
+
+const adminMiniGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 10,
+};
+
+const adminMiniCardStyle = {
+  background: "rgba(255,255,255,0.04)",
+  borderRadius: 18,
+  padding: 14,
+  border: "1px solid rgba(217, 194, 124, 0.14)",
+};
+
+const adminAvatarStyle = {
+  width: 56,
+  height: 56,
+  borderRadius: "50%",
+  background: "linear-gradient(180deg, var(--cta) 0%, var(--accent) 100%)",
+  color: "#072018",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 24,
+  fontWeight: 800,
+};
+
+const adminLogoutButtonStyle = {
+  width: "100%",
+  marginTop: 18,
+  border: "none",
+  borderRadius: 16,
+  padding: 14,
+  background: "var(--cta)",
+  color: "#0a261c",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const adminNavStyle = {
+  position: "absolute",
+  left: 0,
+  right: 0,
+  bottom: 0,
+  display: "grid",
+  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+  gap: 0,
+  padding: "10px 10px 12px",
+  borderRadius: "20px 20px 0 0",
+  background:
+    "linear-gradient(180deg, rgba(6, 24, 21, 0.92) 0%, rgba(3, 16, 13, 0.98) 100%)",
+  borderTop: "1px solid rgba(217, 194, 124, 0.14)",
+  boxShadow: "0 -14px 28px rgba(0, 0, 0, 0.28)",
+  boxSizing: "border-box",
+};
+
+const adminNavButtonStyle = {
+  border: "none",
+  borderRadius: 16,
+  padding: "10px 6px 8px",
+  cursor: "pointer",
+  fontSize: 11,
+  fontWeight: 600,
+  lineHeight: 1.1,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 5,
+  minHeight: 58,
 };
