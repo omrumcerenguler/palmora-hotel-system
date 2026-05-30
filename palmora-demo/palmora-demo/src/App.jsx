@@ -10,9 +10,9 @@ import loginBg from "./assets/loginbg.png";
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
 const LUXURY_BASE_BACKGROUND =
-  "linear-gradient(180deg, #0f2f29 0%, #123a33 46%, #072a24 100%)";
+  "linear-gradient(180deg, #0a5a5b 0%, #0d4f52 35%, #083d41 68%, #052d30 100%)";
 const LUXURY_OVERLAY =
-  "linear-gradient(rgba(4, 18, 15, 0.22), rgba(4, 18, 15, 0.44))";
+  "linear-gradient(rgba(2, 26, 28, 0.12), rgba(2, 26, 28, 0.38))";
 
 const FALLBACK_ROOM_IMAGES = {
   "Ocean View": oceanView,
@@ -222,9 +222,15 @@ export default function App() {
     RoomID: room.RoomID ?? room.id,
     id: room.id ?? room.RoomID,
     image: room.image
-      ? room.image.startsWith("http")
+      ? // If API returns an absolute URL, use it. If it returns a path
+        // prefer non-SVG assets from the backend; treat SVG responses
+        // as decorative/demo images and fall back to local PNGs so
+        // thumbnails show expected photos in the UI.
+        room.image.startsWith("http")
         ? room.image
-        : `${API_BASE}${room.image}`
+        : room.image.endsWith(".svg")
+          ? FALLBACK_ROOM_IMAGES[room.name] || suite
+          : `${API_BASE}${room.image}`
       : FALLBACK_ROOM_IMAGES[room.name] || suite,
   });
 
@@ -271,7 +277,7 @@ export default function App() {
         style={{
           position: "absolute",
           inset: 0,
-          background: "rgba(2, 10, 8, 0.72)",
+          background: "rgba(1, 22, 24, 0.62)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -285,9 +291,10 @@ export default function App() {
             width: "100%",
             borderRadius: 26,
             padding: 20,
-            background: "linear-gradient(180deg, #12352d 0%, #071916 100%)",
-            border: "1px solid rgba(198, 165, 92, 0.36)",
-            boxShadow: "0 20px 50px rgba(0, 0, 0, 0.45)",
+            background:
+              "linear-gradient(180deg, rgba(16, 78, 79, 0.98) 0%, rgba(7, 45, 48, 0.98) 100%)",
+            border: "1px solid rgba(145, 218, 176, 0.16)",
+            boxShadow: "0 20px 50px rgba(0, 0, 0, 0.3)",
           }}
         >
           <h2 style={{ margin: 0, color: "var(--text-h)", fontSize: 24 }}>
@@ -760,7 +767,7 @@ export default function App() {
         justifyContent: "center",
         padding: 20,
         position: "relative",
-        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.42)), url(${loginBg})`,
+        backgroundImage: `linear-gradient(rgba(2, 24, 27, 0.36), rgba(2, 24, 27, 0.58)), url(${loginBg})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -768,27 +775,30 @@ export default function App() {
     >
       <div
         style={{
-          width: "82%",
+          width: "100%",
           maxWidth: 360,
-          background: "rgba(255, 255, 255, 0.18)",
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          border: "1px solid rgba(255, 255, 255, 0.24)",
-          borderRadius: 28,
-          padding: "22px 20px 20px",
+          minHeight: 690,
+          background:
+            "linear-gradient(180deg, rgba(6, 84, 87, 0.58) 0%, rgba(4, 52, 56, 0.76) 100%)",
+          backdropFilter: "blur(6px)",
+          WebkitBackdropFilter: "blur(6px)",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          borderRadius: 24,
+          padding: "34px 24px 28px",
           boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          boxShadow: "0 24px 60px rgba(0, 0, 0, 0.34)",
+          justifyContent: "center",
+          boxShadow: "0 24px 60px rgba(0, 0, 0, 0.22)",
         }}
       >
         <img
           src={palmoraLogo}
           alt="Palmora logo"
           style={{
-            width: 190,
-            maxWidth: "78%",
+            width: 168,
+            maxWidth: "74%",
             marginBottom: 8,
             display: "block",
           }}
@@ -797,10 +807,10 @@ export default function App() {
         <p
           style={{
             margin: 0,
-            color: "#ead9a0",
+            color: "#bfead7",
             fontSize: 11,
-            letterSpacing: 3.2,
-            fontWeight: 700,
+            letterSpacing: 3.1,
+            fontWeight: 600,
           }}
         >
           HOTELS & RESORTS
@@ -808,11 +818,11 @@ export default function App() {
 
         <h1
           style={{
-            margin: "18px 0 6px",
+            margin: "22px 0 6px",
             color: "#ffffff",
-            fontSize: 36,
-            fontWeight: 300,
-            letterSpacing: 0.4,
+            fontSize: 35,
+            fontWeight: 600,
+            letterSpacing: 0,
             textAlign: "center",
           }}
         >
@@ -822,7 +832,7 @@ export default function App() {
         <p
           style={{
             margin: 0,
-            color: "rgba(255, 255, 255, 0.82)",
+            color: "rgba(255, 255, 255, 0.76)",
             fontSize: 14,
             textAlign: "center",
             marginBottom: 22,
@@ -842,10 +852,10 @@ export default function App() {
           placeholder="Admin Email"
           style={{
             ...signupInputStyle,
-            marginBottom: 10,
-            background: "rgba(255, 255, 255, 0.34)",
-            border: "1px solid rgba(255, 255, 255, 0.28)",
-            color: "#111111",
+            marginBottom: 12,
+            background: "rgba(255, 255, 255, 0.06)",
+            border: "1px solid rgba(255, 255, 255, 0.16)",
+            color: "#ffffff",
           }}
         />
         <input
@@ -860,10 +870,10 @@ export default function App() {
           placeholder="Password"
           style={{
             ...signupInputStyle,
-            marginBottom: 8,
-            background: "rgba(255, 255, 255, 0.34)",
-            border: "1px solid rgba(255, 255, 255, 0.28)",
-            color: "#111111",
+            marginBottom: 10,
+            background: "rgba(255, 255, 255, 0.06)",
+            border: "1px solid rgba(255, 255, 255, 0.16)",
+            color: "#ffffff",
           }}
         />
 
@@ -873,7 +883,7 @@ export default function App() {
             display: "flex",
             alignItems: "center",
             gap: 10,
-            color: "rgba(255, 255, 255, 0.9)",
+            color: "rgba(255, 255, 255, 0.86)",
             fontSize: 13,
             margin: "6px 0 10px",
             cursor: "pointer",
@@ -898,9 +908,9 @@ export default function App() {
           onClick={handleAdminLogin}
           style={{
             ...adminPrimaryButtonStyle,
-            background: "var(--bg)",
+            background: "linear-gradient(180deg, #48ca7f 0%, #2aa85e 100%)",
             color: "#ffffff",
-            boxShadow: "0 12px 24px rgba(7, 27, 23, 0.28)",
+            boxShadow: "0 12px 24px rgba(20, 119, 74, 0.22)",
             marginTop: 4,
           }}
         >
@@ -1028,7 +1038,10 @@ export default function App() {
       /* Use longhand properties to avoid mixing shorthand with background-*/
       /* longhand (backgroundSize/Position/Repeat) elsewhere and prevent */
       /* react warnings about removing conflicting style properties. */
-      backgroundImage: "linear-gradient(180deg, #072a24 0%, #031411 100%)",
+      backgroundImage: `${LUXURY_OVERLAY}, url(${loginBg})`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
       backgroundColor: "#072a24",
       display: "flex",
       flexDirection: "column",
@@ -1565,6 +1578,11 @@ export default function App() {
                   height: 120,
                   objectFit: "cover",
                   borderRadius: 18,
+                }}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src =
+                    FALLBACK_ROOM_IMAGES[room.name] || suite;
                 }}
               />
 
@@ -2655,11 +2673,13 @@ const adminContentShellStyle = {
   width: "100%",
   height: "100%",
   padding: 20,
-  paddingBottom: 118,
+  paddingBottom: 18,
   boxSizing: "border-box",
   position: "relative",
   overflowY: "auto",
-  background: "transparent",
+  /* make content shell translucent so adminShellStyle background (loginBg)
+     shows through. Use the global overlay for subtle darkening. */
+  background: LUXURY_OVERLAY,
   backgroundColor: "transparent",
   color: "white",
   display: "flex",
@@ -2670,11 +2690,11 @@ const adminContentShellStyle = {
 const adminLoginShellStyle = {
   width: "100%",
   maxWidth: 360,
-  background: "rgba(9, 31, 25, 0.82)",
+  background: "rgba(9, 60, 64, 0.52)",
   borderRadius: 30,
   padding: 28,
-  border: "1px solid rgba(212, 183, 118, 0.35)",
-  boxShadow: "0 22px 60px rgba(0, 0, 0, 0.42)",
+  border: "1px solid rgba(255, 255, 255, 0.12)",
+  boxShadow: "0 22px 60px rgba(0, 0, 0, 0.26)",
   display: "flex",
   flexDirection: "column",
   gap: 12,
@@ -2707,8 +2727,8 @@ const adminInputStyle = {
   width: "100%",
   padding: 14,
   borderRadius: 16,
-  border: "1px solid rgba(212, 183, 118, 0.34)",
-  background: "rgba(255,255,255,0.07)",
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(255,255,255,0.05)",
   color: "white",
   boxSizing: "border-box",
   outline: "none",
@@ -2726,12 +2746,11 @@ const adminPrimaryButtonStyle = {
   border: "none",
   borderRadius: 16,
   padding: 15,
-  background: "var(--cta)",
-  color: "#0a261c",
+  background: "linear-gradient(180deg, #49cd82 0%, #2ca85f 100%)",
+  color: "#ffffff",
   fontWeight: 800,
   cursor: "pointer",
-  boxShadow:
-    "0 0 0 1px rgba(180,255,87,0.2), 0 12px 24px rgba(180,255,87,0.22)",
+  boxShadow: "0 12px 24px rgba(24, 118, 72, 0.22)",
 };
 
 const adminBackButtonStyle = {
@@ -2767,13 +2786,13 @@ const adminHeaderIconButtonStyle = {
   border: "none",
   borderRadius: 14,
   background: "rgba(255,255,255,0.05)",
-  color: "var(--text-h)",
+  color: "#ffffff",
   fontSize: 20,
   cursor: "pointer",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid rgba(217, 194, 124, 0.14)",
+  border: "1px solid rgba(255,255,255,0.1)",
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
 };
 
@@ -2785,7 +2804,7 @@ const adminTopBarTitleWrapStyle = {
 
 const adminTopBarTitleStyle = {
   margin: 0,
-  color: "var(--text-h)",
+  color: "#ffffff",
   fontSize: 20,
   fontWeight: 700,
   letterSpacing: 0.2,
@@ -2793,11 +2812,12 @@ const adminTopBarTitleStyle = {
 };
 
 const adminAddRoomButtonStyle = {
-  border: "1px solid rgba(112, 216, 149, 0.28)",
+  border: "1px solid rgba(112, 216, 149, 0.2)",
   borderRadius: 14,
   padding: "10px 14px",
-  background: "rgba(71, 201, 115, 0.18)",
-  color: "#b8ffd0",
+  background:
+    "linear-gradient(180deg, rgba(80, 203, 124, 0.98) 0%, rgba(45, 171, 96, 0.98) 100%)",
+  color: "#ffffff",
   fontWeight: 700,
   fontSize: 12,
   cursor: "pointer",
@@ -2825,11 +2845,11 @@ const adminStatGridStyle = {
 const adminStatCardStyle = {
   minHeight: 140,
   background:
-    "linear-gradient(180deg, rgba(20, 73, 66, 0.96) 0%, rgba(10, 40, 35, 0.98) 100%)",
-  borderRadius: 22,
+    "linear-gradient(180deg, rgba(23, 89, 92, 0.96) 0%, rgba(12, 53, 57, 0.98) 100%)",
+  borderRadius: 20,
   padding: "16px 16px 14px",
-  border: "1px solid rgba(217, 194, 124, 0.14)",
-  boxShadow: "0 16px 34px rgba(0, 0, 0, 0.20)",
+  border: "1px solid rgba(255, 255, 255, 0.08)",
+  boxShadow: "0 16px 34px rgba(0, 0, 0, 0.18)",
 };
 
 const adminStatIconWrapStyle = {
@@ -2839,16 +2859,16 @@ const adminStatIconWrapStyle = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  color: "var(--accent)",
+  color: "#f0c24d",
   fontSize: 20,
   marginBottom: 10,
-  background: "rgba(217, 194, 124, 0.12)",
-  border: "1px solid rgba(217, 194, 124, 0.18)",
+  background: "rgba(240, 194, 77, 0.14)",
+  border: "1px solid rgba(240, 194, 77, 0.18)",
 };
 
 const adminStatLabelStyle = {
   margin: 0,
-  color: "rgba(247, 240, 212, 0.74)",
+  color: "rgba(255, 255, 255, 0.84)",
   fontSize: 12,
   fontWeight: 500,
 };
@@ -2857,7 +2877,7 @@ const adminStatValueStyle = {
   margin: "8px 0 6px",
   fontSize: 30,
   lineHeight: 1,
-  color: "var(--text-h)",
+  color: "#ffffff",
   fontWeight: 600,
 };
 
@@ -2865,7 +2885,7 @@ const adminMiniValueStyle = {
   margin: "8px 0 4px",
   fontSize: 24,
   lineHeight: 1,
-  color: "var(--cta)",
+  color: "#49cd82",
 };
 
 const adminStatMetaStyle = {
@@ -2875,12 +2895,14 @@ const adminStatMetaStyle = {
 };
 
 const adminPanelStyle = {
-  background:
-    "linear-gradient(180deg, rgba(17, 58, 52, 0.94) 0%, rgba(8, 29, 25, 0.98) 100%)",
-  borderRadius: 26,
+  /* translucent frosted panel so the background image is visible */
+  background: "rgba(255,255,255,0.04)",
+  backdropFilter: "blur(8px)",
+  WebkitBackdropFilter: "blur(8px)",
+  borderRadius: 22,
   padding: 18,
-  border: "1px solid rgba(217, 194, 124, 0.14)",
-  boxShadow: "0 18px 40px rgba(0, 0, 0, 0.22)",
+  border: "1px solid rgba(255, 255, 255, 0.06)",
+  boxShadow: "0 18px 40px rgba(0, 0, 0, 0.20)",
   marginBottom: 14,
 };
 
@@ -2895,7 +2917,7 @@ const adminPanelHeaderStyle = {
 const adminPanelTitleStyle = {
   margin: 0,
   fontSize: 18,
-  color: "var(--text-h)",
+  color: "#ffffff",
   letterSpacing: 0.2,
 };
 
@@ -2910,7 +2932,7 @@ const adminPanelPillStyle = {
 const adminViewAllTextStyle = {
   border: "none",
   background: "transparent",
-  color: "var(--text-h)",
+  color: "rgba(255, 255, 255, 0.88)",
   fontSize: 13,
   fontWeight: 600,
   cursor: "pointer",
@@ -2938,9 +2960,9 @@ const adminReservationPreviewStyle = {
   height: 50,
   borderRadius: 14,
   background:
-    "linear-gradient(135deg, rgba(217, 194, 124, 0.48) 0%, rgba(20, 90, 90, 0.92) 100%)",
-  border: "1px solid rgba(255,255,255,0.12)",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)",
+    "linear-gradient(135deg, rgba(240, 194, 77, 0.22) 0%, rgba(18, 108, 110, 0.96) 100%)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)",
   overflow: "hidden",
 };
 
@@ -2956,7 +2978,7 @@ const adminReservationInfoStyle = {
 };
 
 const adminReservationDateStyle = {
-  color: "rgba(247, 240, 212, 0.68)",
+  color: "rgba(255, 255, 255, 0.72)",
   fontSize: 13,
   textAlign: "left",
   lineHeight: 1.3,
@@ -2980,16 +3002,16 @@ const adminRoomCardStyle = {
   padding: 14,
   borderRadius: 22,
   background:
-    "linear-gradient(180deg, rgba(19, 74, 66, 0.96) 0%, rgba(10, 35, 31, 0.98) 100%)",
-  border: "1px solid rgba(217, 194, 124, 0.14)",
-  boxShadow: "0 16px 34px rgba(0, 0, 0, 0.22)",
+    "linear-gradient(180deg, rgba(24, 89, 90, 0.96) 0%, rgba(11, 50, 54, 0.98) 100%)",
+  border: "1px solid rgba(255, 255, 255, 0.08)",
+  boxShadow: "0 16px 34px rgba(0, 0, 0, 0.18)",
 };
 const adminRoomThumbStyle = {
   width: 114,
   height: 86,
   objectFit: "cover",
   borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.14)",
+  border: "1px solid rgba(255,255,255,0.12)",
   boxShadow: "0 12px 26px rgba(0, 0, 0, 0.24)",
 };
 
@@ -3007,14 +3029,14 @@ const adminRoomTitleRowStyle = {
 
 const adminRoomTitleStyle = {
   margin: 0,
-  color: "var(--text-h)",
+  color: "#ffffff",
   fontSize: 16,
   fontWeight: 700,
 };
 
 const adminRoomPriceStyle = {
   margin: "4px 0 0",
-  color: "rgba(247, 240, 212, 0.78)",
+  color: "rgba(255,255,255,0.74)",
   fontSize: 13,
 };
 
@@ -3028,13 +3050,13 @@ const adminRecentBookingRowStyle = {
 };
 
 const adminRecentBookingNameStyle = {
-  color: "var(--text-h)",
+  color: "#ffffff",
   fontSize: 14,
   fontWeight: 700,
 };
 
 const adminRecentBookingMetaStyle = {
-  color: "rgba(247, 240, 212, 0.68)",
+  color: "rgba(255,255,255,0.72)",
   fontSize: 12,
 };
 
@@ -3049,14 +3071,14 @@ const adminReportRowStyle = {
 
 const adminRowPrimaryStyle = {
   margin: 0,
-  color: "var(--text-h)",
+  color: "#ffffff",
   fontSize: 15,
   fontWeight: 700,
 };
 
 const adminRowSecondaryStyle = {
   margin: "4px 0 0",
-  color: "rgba(247, 240, 212, 0.66)",
+  color: "rgba(255,255,255,0.72)",
   fontSize: 12,
   lineHeight: 1.4,
 };
@@ -3081,20 +3103,20 @@ const adminActionRowStyle = {
 };
 
 const adminGhostButtonStyle = {
-  border: "1px solid rgba(217, 194, 124, 0.26)",
+  border: "1px solid rgba(255,255,255,0.12)",
   borderRadius: 12,
   padding: "8px 12px",
-  background: "rgba(217, 194, 124, 0.08)",
-  color: "var(--text-h)",
+  background: "rgba(255,255,255,0.05)",
+  color: "#ffffff",
   cursor: "pointer",
 };
 
 const adminOutlineButtonStyle = {
-  border: "1px solid rgba(216, 178, 99, 0.34)",
+  border: "1px solid rgba(255,255,255,0.12)",
   borderRadius: 12,
   padding: "8px 12px",
-  background: "rgba(217, 194, 124, 0.08)",
-  color: "#ead9a0",
+  background: "rgba(255,255,255,0.05)",
+  color: "rgba(255,255,255,0.9)",
   cursor: "pointer",
 };
 
@@ -3137,19 +3159,20 @@ const adminLogoutButtonStyle = {
 };
 
 const adminNavStyle = {
-  position: "absolute",
+  position: "sticky",
   left: 0,
   right: 0,
   bottom: 0,
   display: "grid",
   gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
   gap: 0,
+  marginTop: "auto",
   padding: "10px 10px 12px",
   borderRadius: "20px 20px 0 0",
-  background:
-    "linear-gradient(180deg, rgba(6, 24, 21, 0.92) 0%, rgba(3, 16, 13, 0.98) 100%)",
-  borderTop: "1px solid rgba(217, 194, 124, 0.14)",
-  boxShadow: "0 -14px 28px rgba(0, 0, 0, 0.28)",
+  /* translucent nav so background image shows behind it */
+  background: "rgba(6,20,20,0.44)",
+  borderTop: "1px solid rgba(255,255,255,0.08)",
+  boxShadow: "0 -14px 28px rgba(0, 0, 0, 0.22)",
   boxSizing: "border-box",
 };
 
